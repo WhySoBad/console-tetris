@@ -42,8 +42,12 @@
     "streambuf": "cpp",
     "typeinfo": "cpp",
     "thread": "cpp",
-    "chrono": "cpp"
+    "chrono": "cpp",
+    "csignal": "cpp",
+    "ctime": "cpp",
+    "ratio": "cpp"
   },
   "editor.defaultFormatter": "ms-vscode.cpptools",
-  "C_Cpp.errorSquiggles": "Enabled"
+  "C_Cpp.errorSquiggles": "Enabled",
+  "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 3, ColumnLimit: 250 }"
 }
