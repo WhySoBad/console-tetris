@@ -40,7 +40,6 @@ int BoundingBox::getHeight() { return height; }
 int BoundingBox::getWidth() { return width; }
 
 Tetris::Tetris(int startX = 0, int startY = 0) : BoundingBox(startX, startY, 0, 0) {
-   step = 1;
    int variant = rand() % 7;
    switch (variant) {
       case 0:  // I-Tetromino
@@ -58,16 +57,14 @@ Tetris::Tetris(int startX = 0, int startY = 0) : BoundingBox(startX, startY, 0, 
          memcpy(_points, points, sizeof(points));
          width = 3;
          height = 2;
-         _type = Tetromino::j;
          break;
       }
       case 2:  // L-Tetromino
       {
-         Point points[4] = {Point(startX, startY + 1), Point(startX + 1, startY + 1), Point(startX + 2, startY + 1), Point(startX + 2, startY)};
+         Point points[4] = {Point(startX, startY), Point(startX + 1, startY), Point(startX + 2, startY), Point(startX + 2, startY + 1)};
          memcpy(_points, points, sizeof(points));
          width = 3;
          height = 2;
-         _type = Tetromino::l;
          break;
       }
       case 3:  // O-Tetromino
@@ -76,7 +73,6 @@ Tetris::Tetris(int startX = 0, int startY = 0) : BoundingBox(startX, startY, 0, 
          memcpy(_points, points, sizeof(points));
          width = 2;
          height = 2;
-         _type = Tetromino::o;
          break;
       }
       case 4:  // S-Tetromino
@@ -85,16 +81,14 @@ Tetris::Tetris(int startX = 0, int startY = 0) : BoundingBox(startX, startY, 0, 
          memcpy(_points, points, sizeof(points));
          width = 3;
          height = 2;
-         _type = Tetromino::s;
          break;
       }
       case 5:  // T-Tetromino
       {
-         Point points[4] = {Point(startX, startY + 1), Point(startX + 1, startY + 1), Point(startX + 2, startY + 1), Point(startX + 1, startY)};
+         Point points[4] = {Point(startX, startY), Point(startX + 1, startY), Point(startX + 2, startY), Point(startX + 1, startY + 1)};
          memcpy(_points, points, sizeof(points));
          width = 3;
          height = 2;
-         _type = Tetromino::t;
          break;
       }
       case 6:  // Z-Tetromino
@@ -103,10 +97,11 @@ Tetris::Tetris(int startX = 0, int startY = 0) : BoundingBox(startX, startY, 0, 
          memcpy(_points, points, sizeof(points));
          width = 3;
          height = 2;
-         _type = Tetromino::z;
          break;
       }
    }
+   _type = (Tetromino)variant;
+   step = 1;
 }
 
 array<Point, 4> Tetris::getPoints() {
@@ -126,6 +121,8 @@ void Tetris::moveY(int dy) {
    y += dy;
    for (int i = 0; i < 4; i++) _points[i].moveY(dy);
 }
+
+int Tetris::getRotation() { return step; }
 
 void Tetris::rotate()  // rotate the tetris-object 90deg to the right
 {

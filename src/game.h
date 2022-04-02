@@ -15,18 +15,18 @@ class Game {
    void start();                       // start the game cycle
    void stop();                        // stop the game cycle
    bool isRunning();                   // boolean whether the game cycle is currently running
-   const int &height;                  // height of the game
-   const int &width;                   // width of the game
-   const int &framerate;               // framerate of the game
+   int getHeight();                    // get the height of the screen
+   int getWidth();                     // get the width of the screen
+   int getFramerate();                 // get the framerate of the game
    void setFramerate(int &framerate);  // set the framerate of the game
    Game(int framerate);
 
   private:
    void draw();                                                          // draw method
    bool running = false;                                                 // boolean whether the game cycle is running or not
-   int _height;                                                          // modifiable height of the game
-   int _width;                                                           // modifiable width of the game
-   int _framerate;                                                       // modifiable framerate of the game
+   int height;                                                           // modifiable height of the game
+   int width;                                                            // modifiable width of the game
+   int framerate;                                                        // modifiable framerate of the game
    bool isInScreen(Point &point);                                        // method to get whether a point is in the screen
    bool isInField(Point &point);                                         // method to get whether a point is in the screen whereby the point is allowed to be out of the field at the top
    bool canRotate(Tetris tetris);                                        // method to check whether a tetris-object is allowed to rotate
@@ -35,8 +35,13 @@ class Game {
    int getHighestFixed(int x);                                           // method to get the highest y-coordinate of a fixed point for a x-coordinate
    void drawPreviewLine(Tetris &tetris, const char *character);          // method to draw the line where the tetris-object will land
    void drawPoints(array<Point, 4>, const char *character, int c = -1);  // draw multiple points to the screen
+   void drawBorder();                                                    // draw the border around the field
    vector<vector<bool>> fixed;                                           // list with the "coordinated" of all fixed points
    WINDOW *window;                                                       // active window
    Tetris active;                                                        // active tetris-object
    Tetris upcoming;                                                      // next tetris-object
+   int paddingX;                                                         // padding to center the field on the x-axis
+   int paddingY;                                                         // padding to center the field on the y-axis
+   int level;                                                            // level of the current tetris round
+   int score;                                                            // score of the current tetris round
 };

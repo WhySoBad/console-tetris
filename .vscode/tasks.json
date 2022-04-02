@@ -26,7 +26,6 @@
         "${workspaceFolder}/src/*.cpp",
         "-o",
         "${workspaceFolder}/build/tetris",
-        "-lpthread",
         "-lncursesw"
       ],
       "dependsOn": "Build directory",

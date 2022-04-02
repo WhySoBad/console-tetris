@@ -41,6 +41,7 @@ class Tetris : public BoundingBox {
    void moveX(int dx);           // move the tetris-object on the x-axis
    void moveY(int dy);           // move the tetris-object on the y-axis
    void rotate();                // rotate the tetris-object
+   int getRotation();            // get the rotation of the tetris-object
    Tetris(int startX, int startY);
 
   private:
