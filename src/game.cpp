@@ -9,6 +9,7 @@
 #include <cmath>
 #include <ctime>
 #include <iostream>
+#include <set>
 #include <string>
 #include <vector>
 using namespace std;
@@ -26,6 +27,7 @@ const char *OCCUPIED_SPACE = " ";
 const char *PREVIEW_DOT = "•";
 const int fieldWidth = 10;
 const int menuWidth = 7;
+const int upcomingHeight = 7;
 const int fieldHeight = 24;
 const int steps = 10;  // should optionally be 0.5x the framerate
 const int startY = -2;
@@ -41,8 +43,11 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0)), upcoming(Tetris(0, 0)) {
    Game::framerate = framerate;
    struct winsize size;
    ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);  // get terminal size
-   height = size.ws_row;                     // keyboard line subtracted
+   height = size.ws_row;
    width = size.ws_col;
+   level = 0;
+   score = 0;
+   cleared = 0;
 
    WINDOW *win = newwin(height, width, 0, 0);  // create the new window
    initscr();                                  // init ncurses screen
@@ -73,12 +78,14 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0)), upcoming(Tetris(0, 0)) {
    // TODO -> Check if tetris-object fits into the width
 
    active = Tetris(rand() % (fieldWidth - 1), startY);
+   if (active.getX() + active.getWidth() >= fieldWidth) active.moveX(fieldWidth - (active.getX() + active.getWidth()));
    upcoming = Tetris(rand() % (fieldWidth - 1), startY);
+   if (upcoming.getX() + upcoming.getWidth() >= fieldWidth) upcoming.moveX(fieldWidth - (upcoming.getX() + upcoming.getWidth()));
 
    for (int i = 0; i < fieldHeight; i++) {
-      vector<bool> row = vector<bool>(fieldWidth);
+      vector<short> row = vector<short>(fieldWidth);
       for (int j = 0; j < fieldWidth; j++) {
-         row[j] = false;
+         row[j] = 0;  // not occupied
       }
       fixed.push_back(row);
    }
@@ -87,8 +94,13 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0)), upcoming(Tetris(0, 0)) {
 }
 
 void Game::draw() {
+   // get current key
+   timeout(0);  // don't wait until user input
+   int key = getch();
+   flushinp();  // clear input buffer
+
    // draw active object
-   if (step == steps) {
+   if (step == steps /* && false || key == 32 */) {
       if (canMove(active, Direction::vertical, 1)) {
          drawPoints(active.getPoints(), EMPTY_SPACE);
          active.moveY(1);
@@ -97,15 +109,14 @@ void Game::draw() {
       }
    }
 
-   // get current key
-   timeout(0);  // don't wait until user input
-   int key = getch();
-   flushinp();  // clear input buffer
-
    mvprintw(2, 5, to_string(active.getX()).c_str());
    mvprintw(3, 5, to_string(active.getY()).c_str());
    mvprintw(4, 5, to_string(active.getWidth()).c_str());
    mvprintw(5, 5, to_string(active.getHeight()).c_str());
+
+   mvprintw(6, 5, string("Score: ").append(to_string(score)).c_str());
+   mvprintw(7, 5, string("Level: ").append(to_string(level)).c_str());
+   mvprintw(8, 5, string("Cleared: ").append(to_string(cleared)).c_str());
 
    // TODO -> Move left/right on left/rightclick
 
@@ -119,15 +130,22 @@ void Game::draw() {
             drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
          }
          break;
-      case KEY_DOWN:
-         if (canMove(active, Direction::vertical, fieldHeight - active.getY() - active.getHeight())) {
+      case KEY_DOWN: {
+         int shortest = fieldHeight - active.getY() - active.getHeight();  // default shortest distance
+         for (int i = 0; i < active.getPoints().size(); i++) {
+            Point point = active.getPoints()[i];
+            int highestFixed = getHighestFixed(point.getX(), active.getHeight() + active.getY());
+            int _shortest = highestFixed - point.getY() - 1;
+            if (_shortest < shortest) shortest = _shortest;
+         }
+         if (canMove(active, Direction::vertical, shortest)) {
             drawPoints(active.getPoints(), EMPTY_SPACE);
             drawPreviewLine(active, EMPTY_SPACE);
-            active.moveY(fieldHeight - active.getY() - active.getHeight());
+            active.moveY(shortest);
             drawPreviewLine(active, PREVIEW_DOT);
             drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
          }
-         break;
+      } break;
       case KEY_RIGHT:
          if (canMove(active, Direction::horizontal, 1)) {
             drawPoints(active.getPoints(), EMPTY_SPACE);
@@ -149,19 +167,7 @@ void Game::draw() {
    };
 
    if (key == KEY_UP || key == KEY_DOWN || key == KEY_RIGHT || key == KEY_LEFT || step == steps) {
-      if (!canMove(active, Direction::vertical, 1)) {
-         mvprintw(6, 5, "true ");
-         drawPreviewLine(active, EMPTY_SPACE);
-         for (int i = 0; i < active.getPoints().size(); i++) {
-            Point point = active.getPoints()[i];
-            fixed[point.getY()][point.getX()] = true;
-         }
-         active = upcoming;
-         upcoming = Tetris(rand() % (fieldWidth - 1), startY);
-         int rotation = (rand() % 3) + 1;
-         while (canRotate(upcoming) && upcoming.getRotation() < rotation) upcoming.rotate();  // add random rotation to the tetris-object
-      } else
-         mvprintw(6, 5, "false");
+      if (!canMove(active, Direction::vertical, 1)) fixActive();
    }
 
    if (step % 2 == 0) refresh();
@@ -201,15 +207,18 @@ void Game::stop() {
 
 void Game::drawPoints(array<Point, 4> points, const char *character, int color) {
    for (int i = 0; i < points.size(); i++) {
-      Point point = points[i];
-      if (isInScreen(point)) {
-         if (color >= 0) attron(COLOR_PAIR(color));
-         for (int i = 0; i < pow(pointSize, 2) * pointWidth; i++) {
-            int row = i / pointWidth / pointSize;
-            mvprintw(pointSize * point.getY() + paddingY + row, pointWidth * pointSize * point.getX() + paddingX + i - (row * pointWidth * pointSize), character);
-         }
-         if (color >= 0) attroff(COLOR_PAIR(color));
+      drawPoint(points[i], character, color);
+   }
+}
+
+void Game::drawPoint(Point &point, const char *character, int color) {
+   if (isInScreen(point)) {
+      if (color >= 0) attron(COLOR_PAIR(color));
+      for (int i = 0; i < pow(pointSize, 2) * pointWidth; i++) {
+         int row = i / pointWidth / pointSize;
+         mvprintw(pointSize * point.getY() + paddingY + row, pointWidth * pointSize * point.getX() + paddingX + i - (row * pointWidth * pointSize), character);
       }
+      if (color >= 0) attroff(COLOR_PAIR(color));
    }
 }
 
@@ -238,7 +247,7 @@ bool Game::canMove(Tetris tetris, Direction direction, int delta) {
 bool Game::intersectsFixed(Tetris &tetris) {
    for (int i = 0; i < tetris.getPoints().size(); i++) {
       Point point = tetris.getPoints()[i];
-      if (isInScreen(point)) {
+      if (isInScreen(point)) {  // segmentation fault when object is out of field on the top
          if (fixed[point.getY()][point.getX()]) return true;
       }
    }
@@ -249,25 +258,20 @@ void Game::drawPreviewLine(Tetris &tetris, const char *character) {
    for (int i = 0; i < tetris.getPoints().size(); i++) {
       Point point = tetris.getPoints()[i];
       if (point.getY() != tetris.getY() + tetris.getHeight() - 1) continue;  // filter out lowest points of the tetris-object
-      for (int j = 0; j < getHighestFixed(point.getX()) - point.getY(); j++) {
+      for (int j = 0; j < getHighestFixed(point.getX(), active.getHeight() + active.getY()) - point.getY(); j++) {
          Point dot = Point(point.getX(), point.getY() + 1 + j);
          if (isInScreen(dot) && !fixed[dot.getY()][dot.getX()]) {
-            attron(COLOR_PAIR(8));
-            for (int i = 0; i < pow(pointSize, 2) * pointWidth; i++) {
-               int row = i / pointWidth / pointSize;
-               mvprintw(pointSize * dot.getY() + paddingY + row, pointWidth * pointSize * dot.getX() + paddingX + i - (row * pointWidth * pointSize), character);
-            }
-            attroff(COLOR_PAIR(8));
+            drawPoint(dot, character, 8);
          }
       }
    }
 }
 
-int Game::getHighestFixed(int x) {
+int Game::getHighestFixed(int x, int higher) {
    for (int i = 0; i < fixed.size(); i++) {
-      if (fixed[i][x]) return i;
+      if (fixed[i][x] && i >= higher) return i;
    }
-   return fixed.size() - 1;
+   return fixed.size();
 }
 
 bool Game::isInScreen(Point &point) { return point.getX() >= 0 && point.getX() < fieldWidth && point.getY() >= 0 && point.getY() < fieldHeight; }
@@ -317,6 +321,112 @@ void Game::drawBorder() {
             mvprintw(paddingY + i - 1, paddingX + fieldWidth * pointSize * pointWidth + 1 + j, HORIZONTAL_BORDER);
          else if (j == menuWidth * pointSize * pointWidth)
             mvprintw(paddingY + i - 1, paddingX + fieldWidth * pointSize * pointWidth + 1 + j, VERTICAL_BORDER);
+      }
+   }
+}
+
+void Game::fixActive() {
+   drawPreviewLine(active, EMPTY_SPACE);  // remove preview line
+   vector<int> modifiedRows = vector<int>();
+   for (int i = 0; i < active.getPoints().size(); i++) {  // update fixed points in the array
+      Point point = active.getPoints()[i];
+      fixed[point.getY()][point.getX()] = active.getType() + 1;  // store color for the point
+      bool existing = false;
+      for (int j = 0; j < modifiedRows.size(); j++) {
+         if (modifiedRows[j] == point.getY()) {
+            existing = true;
+            break;
+         }
+      }
+      if (!existing) modifiedRows.push_back(point.getY());
+   }
+
+   // clear full rows
+
+   vector<int> fullRows = vector<int>();
+
+   for (int i = 0; i < modifiedRows.size(); i++) {
+      vector<short> row = fixed[modifiedRows[i]];
+      bool isFull = true;
+      for (int j = 0; j < row.size(); j++) {
+         if (!row[j]) {
+            isFull = false;
+            break;
+         }
+      }
+      if (isFull) fullRows.push_back(modifiedRows[i]);
+   }
+
+   for (int i = 0; i < fullRows.size(); i++) {
+      for (int j = 0; j < fixed[fullRows[i]].size(); j++) {
+         fixed[fullRows[i]][j] = 0;  // not occupied
+         Point point = Point(j, fullRows[i]);
+         drawPoint(point, EMPTY_SPACE);
+      }
+   }
+
+   // TODO -> When multiple rows are full the highest gets cleared
+
+   for (int i = 0; i < fullRows.size(); i++) {  // highest row is earliest in the array
+      int highestY = fieldHeight;
+      for (int i = 0; i < fieldWidth; i++) {  // determine highest occupied row
+         int highest = getHighestFixed(i);
+         if (highest < highestY) highestY = highest;
+      }
+
+      if (highestY > fullRows[i]) continue;  // if no higher occupied row go to next one
+      for (int j = 0; j <= fullRows[i] - highestY; j++) {
+         int _y = fullRows[i] - j;
+         if (j == fullRows[i] - highestY) {  // last occupied row should be cleared
+            for (int k = 0; k < fieldWidth; k++) {
+               fixed[_y][k] = 0;  // not occupied
+               Point point = Point(k, _y);
+               drawPoint(point, EMPTY_SPACE);
+            }
+         } else {  // every not-last occupied row gets moved one index lower
+            fixed[_y] = fixed[_y - 1];
+            for (int k = 0; k < fieldWidth; k++) {
+               Point point = Point(k, _y);
+               if (fixed[_y][k]) {
+                  drawPoint(point, OCCUPIED_SPACE, fixed[_y][k]);
+               } else {
+                  drawPoint(point, EMPTY_SPACE);
+               }
+            }
+         }
+      }
+   }
+
+   // update level and score
+
+   cleared += fullRows.size();
+   if (level == 0 ? cleared == 10 : cleared == level * 21) level++;
+
+   switch (fullRows.size()) {
+      case 1:
+         score += (level + 1) * 40;
+         break;
+      case 2:
+         score += (level + 1) * 100;
+         break;
+      case 3:
+         score += (level + 1) * 300;
+         break;
+      case 4:
+         score += (level + 1) * 1200;
+         break;
+   }
+
+   // update active object
+
+   active = upcoming;
+   upcoming = Tetris(rand() % (fieldWidth - 1), startY);
+   if (upcoming.getX() + upcoming.getWidth() >= fieldWidth) upcoming.moveX(fieldWidth - (upcoming.getX() + upcoming.getWidth()));  // make sure the object is in the field
+   for (int i = 0; i < (rand() % 4) + 1; i++) {                                                                                    // add random rotation
+      if (canRotate(upcoming)) {
+         upcoming.rotate();
+      } else {
+         break;
       }
    }
 }
