@@ -29,7 +29,7 @@ const char *OCCUPIED_SPACE = " ";
 const char *PREVIEW_DOT = "•";
 const int fieldWidth = 10;
 const int menuWidth = 7;
-const int upcomingHeight = 6;
+const int upcomingHeight = 6;  // height of the upcoming box
 const int fieldHeight = 24;
 const int steps = 10;  // should optionally be 0.5x the framerate
 const int startY = -2;
@@ -122,6 +122,7 @@ void Game::draw() {
    mvprintw(8, 5, string("Cleared: ").append(to_string(cleared)).c_str());
 
    // TODO -> Move left/right on left/rightclick
+   // TODO -> Be able to rotate when object is partially out of screen
 
    switch (key) {
       case KEY_UP:
@@ -354,11 +355,13 @@ void Game::drawUpcoming() {
       }
    }
 
-   int _paddingX = menuWidth - upcoming.getHeight() / 2;
-   int _paddingY = upcomingHeight - upcoming.getWidth() / 2;
+   int _paddingX = (menuWidth - upcoming.getHeight()) / 2;
+   int _paddingY = (upcomingHeight - upcoming.getWidth()) / 2;
 
    for (int i = 0; i < upcoming.getPoints().size(); i++) {
-      Point point = Point(fieldWidth + 1 + _paddingX, _paddingY);
+      Point point = upcoming.getPoints()[i];
+      Point previewPoint = Point(fieldWidth + 1 + _paddingY + point.getX() - upcoming.getX(), _paddingX + point.getY() - upcoming.getY());
+      drawPoint(previewPoint, OCCUPIED_SPACE, upcoming.getType() + 1, true);
    }
 }
 
