@@ -21,19 +21,22 @@ const char *BOTTOM_RIGHT_CORNER = "┛";
 const char *VERTICAL_BORDER = "┃";
 const char *HORIZONTAL_BORDER = "━";
 const char *TOP_CROSSING_BORDER = "┳";
-const char *BOTTOM_CROSSING_BORDER = "┷";
+const char *BOTTOM_CROSSING_BORDER = "┻";
+const char *RIGHT_CROSSING_BORDER = "┫";
+const char *LEFT_CROSSING_BORDER = "┣";
 const char *EMPTY_SPACE = " ";
 const char *OCCUPIED_SPACE = " ";
 const char *PREVIEW_DOT = "•";
 const int fieldWidth = 10;
 const int menuWidth = 7;
-const int upcomingHeight = 7;
+const int upcomingHeight = 6;
 const int fieldHeight = 24;
 const int steps = 10;  // should optionally be 0.5x the framerate
 const int startY = -2;
-const int pointSize = 2;
+const int pointSize = 1;
 const int pointWidth = 2;
 
+bool gameover = false;
 int step = steps;  // step indicating the current cycle tick; the object should only move every fourth tick
 
 Game::Game(int framerate = 60) : active(Tetris(0, 0)), upcoming(Tetris(0, 0)) {
@@ -142,6 +145,7 @@ void Game::draw() {
             drawPoints(active.getPoints(), EMPTY_SPACE);
             drawPreviewLine(active, EMPTY_SPACE);
             active.moveY(shortest);
+            score += shortest;
             drawPreviewLine(active, PREVIEW_DOT);
             drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
          }
@@ -170,6 +174,8 @@ void Game::draw() {
       if (!canMove(active, Direction::vertical, 1)) fixActive();
    }
 
+   drawUpcoming();
+
    if (step % 2 == 0) refresh();
    if (step == steps)
       step = 0;
@@ -193,7 +199,7 @@ void Game::start() {
    const float tick = 1000 / framerate;
    do {
       chrono::high_resolution_clock::time_point now = chrono::high_resolution_clock::now();
-      draw();
+      if (!gameover) draw();
       chrono::high_resolution_clock::time_point after = chrono::high_resolution_clock::now();
       float elapsed = chrono::duration_cast<chrono::milliseconds>(after - now).count();
       napms(tick - elapsed);  // await remaining milliseconds of the tick
@@ -211,8 +217,8 @@ void Game::drawPoints(array<Point, 4> points, const char *character, int color) 
    }
 }
 
-void Game::drawPoint(Point &point, const char *character, int color) {
-   if (isInScreen(point)) {
+void Game::drawPoint(Point &point, const char *character, int color, bool ignore) {
+   if (ignore || isInScreen(point)) {
       if (color >= 0) attron(COLOR_PAIR(color));
       for (int i = 0; i < pow(pointSize, 2) * pointWidth; i++) {
          int row = i / pointWidth / pointSize;
@@ -248,6 +254,7 @@ bool Game::intersectsFixed(Tetris &tetris) {
    for (int i = 0; i < tetris.getPoints().size(); i++) {
       Point point = tetris.getPoints()[i];
       if (isInScreen(point)) {  // segmentation fault when object is out of field on the top
+         if (getHighestFixed(point.getX()) == 0 && point.getY() < 0) return true;
          if (fixed[point.getY()][point.getX()]) return true;
       }
    }
@@ -321,16 +328,51 @@ void Game::drawBorder() {
             mvprintw(paddingY + i - 1, paddingX + fieldWidth * pointSize * pointWidth + 1 + j, HORIZONTAL_BORDER);
          else if (j == menuWidth * pointSize * pointWidth)
             mvprintw(paddingY + i - 1, paddingX + fieldWidth * pointSize * pointWidth + 1 + j, VERTICAL_BORDER);
+
+         // draw upcoming box
+
+         if (i == (upcomingHeight + 1) * pointSize) {
+            if (j == 0) {
+               mvprintw(paddingY + i - 1, paddingX + fieldWidth * pointSize * pointWidth + j, LEFT_CROSSING_BORDER);
+               mvprintw(paddingY + i - 1, paddingX + fieldWidth * pointSize * pointWidth + 1 + j, HORIZONTAL_BORDER);
+            } else if (j == menuWidth * pointSize * pointWidth) {
+               mvprintw(paddingY + i - 1, paddingX + fieldWidth * pointSize * pointWidth + 1 + j, RIGHT_CROSSING_BORDER);
+            } else {
+               mvprintw(paddingY + i - 1, paddingX + fieldWidth * pointSize * pointWidth + 1 + j, HORIZONTAL_BORDER);
+            }
+         }
       }
+   }
+}
+
+void Game::drawUpcoming() {
+   // clear the current upcoming
+
+   for (int i = 0; i < upcomingHeight * pointSize; i++) {
+      for (int j = 0; j < menuWidth * pointSize * pointWidth; j++) {
+         mvprintw(paddingY + i, paddingX + fieldWidth * pointSize * pointWidth + 1 + j, EMPTY_SPACE);
+      }
+   }
+
+   int _paddingX = menuWidth - upcoming.getHeight() / 2;
+   int _paddingY = upcomingHeight - upcoming.getWidth() / 2;
+
+   for (int i = 0; i < upcoming.getPoints().size(); i++) {
+      Point point = Point(fieldWidth + 1 + _paddingX, _paddingY);
    }
 }
 
 void Game::fixActive() {
    drawPreviewLine(active, EMPTY_SPACE);  // remove preview line
+   bool outOfScreen = false;
    vector<int> modifiedRows = vector<int>();
    for (int i = 0; i < active.getPoints().size(); i++) {  // update fixed points in the array
       Point point = active.getPoints()[i];
-      fixed[point.getY()][point.getX()] = active.getType() + 1;  // store color for the point
+      if (point.getY() >= 0) {
+         fixed[point.getY()][point.getX()] = active.getType() + 1;  // store color for the point
+      } else {
+         outOfScreen = true;
+      }
       bool existing = false;
       for (int j = 0; j < modifiedRows.size(); j++) {
          if (modifiedRows[j] == point.getY()) {
@@ -339,6 +381,11 @@ void Game::fixActive() {
          }
       }
       if (!existing) modifiedRows.push_back(point.getY());
+   }
+
+   if (outOfScreen || active.getY() == 0) {
+      gameOver();
+      return;
    }
 
    // clear full rows
@@ -429,4 +476,9 @@ void Game::fixActive() {
          break;
       }
    }
+}
+
+void Game::gameOver() {
+   gameover = true;
+   mvprintw(30, 5, "Game over");
 }
