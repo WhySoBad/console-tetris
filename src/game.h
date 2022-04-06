@@ -34,9 +34,11 @@ class Game {
    void drawPoint(Point &point, const char *character, int c = -1, bool ignore = false);  // draw a single point on the screen
    void drawBorder();                                                                     // draw the border around the field
    void drawUpcoming();                                                                   // draw the upcoming object in its box
+   void drawStatistics();                                                                 // draw the statistics below the upcoming object
    void gameOver();                                                                       // handle a game over
    void draw();                                                                           // draw method
    vector<vector<short>> fixed;                                                           // list with the "coordinates" of all fixed points [0 = not fixed, all other numbers equal the fixed color]
+   array<int, 7> block;                                                                   // block with the upcoming 7 object types
    WINDOW *window;                                                                        // active window
    Tetris active;                                                                         // active tetris-object
    Tetris upcoming;                                                                       // next tetris-object
@@ -49,4 +51,5 @@ class Game {
    int height;                                                                            // modifiable height of the game
    int width;                                                                             // modifiable width of the game
    int framerate;                                                                         // modifiable framerate of the game
+   int currentBlock;                                                                      // the current block
 };

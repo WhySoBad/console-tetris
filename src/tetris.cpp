@@ -39,9 +39,8 @@ int BoundingBox::getHeight() { return height; }
 
 int BoundingBox::getWidth() { return width; }
 
-Tetris::Tetris(int startX = 0, int startY = 0) : BoundingBox(startX, startY, 0, 0) {
-   int variant = rand() % 7;
-   switch (variant) {
+Tetris::Tetris(int startX = 0, int startY = 0, Tetromino type = (Tetromino)0) : BoundingBox(startX, startY, 0, 0) {
+   switch (type) {
       case 0:  // I-Tetromino
       {
          Point points[4] = {Point(startX, startY), Point(startX + 1, startY), Point(startX + 2, startY), Point(startX + 3, startY)};
@@ -100,7 +99,7 @@ Tetris::Tetris(int startX = 0, int startY = 0) : BoundingBox(startX, startY, 0, 
          break;
       }
    }
-   _type = (Tetromino)variant;
+   _type = (Tetromino)type;
    step = 1;
 }
 

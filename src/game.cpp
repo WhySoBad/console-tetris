@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <ctime>
@@ -39,7 +40,7 @@ const int pointWidth = 2;
 bool gameover = false;
 int step = steps;  // step indicating the current cycle tick; the object should only move every fourth tick
 
-Game::Game(int framerate = 60) : active(Tetris(0, 0)), upcoming(Tetris(0, 0)) {
+Game::Game(int framerate = 60) : active(Tetris(0, 0, (Tetromino)0)), upcoming(Tetris(0, 0, (Tetromino)0)) {
    auto seed = chrono::time_point_cast<chrono::microseconds>(chrono::system_clock::now()).time_since_epoch().count();
    srand(seed);  // add seed to rand();
    setlocale(LC_ALL, "");
@@ -51,6 +52,8 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0)), upcoming(Tetris(0, 0)) {
    level = 0;
    score = 0;
    cleared = 0;
+   for (int i = 0; i < block.size(); i++) block[i] = i;
+   random_shuffle(begin(block), end(block));  // randomize the entries
 
    WINDOW *win = newwin(height, width, 0, 0);  // create the new window
    initscr();                                  // init ncurses screen
@@ -78,12 +81,11 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0)), upcoming(Tetris(0, 0)) {
 
    drawBorder();
 
-   // TODO -> Check if tetris-object fits into the width
-
-   active = Tetris(rand() % (fieldWidth - 1), startY);
+   active = Tetris(rand() % (fieldWidth - 1), startY, (Tetromino)block[0]);
    if (active.getX() + active.getWidth() >= fieldWidth) active.moveX(fieldWidth - (active.getX() + active.getWidth()));
-   upcoming = Tetris(rand() % (fieldWidth - 1), startY);
+   upcoming = Tetris(rand() % (fieldWidth - 1), startY, (Tetromino)block[1]);
    if (upcoming.getX() + upcoming.getWidth() >= fieldWidth) upcoming.moveX(fieldWidth - (upcoming.getX() + upcoming.getWidth()));
+   currentBlock = 2;
 
    for (int i = 0; i < fieldHeight; i++) {
       vector<short> row = vector<short>(fieldWidth);
@@ -93,6 +95,7 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0)), upcoming(Tetris(0, 0)) {
       fixed.push_back(row);
    }
 
+   drawUpcoming();
    refresh();
 }
 
@@ -112,17 +115,9 @@ void Game::draw() {
       }
    }
 
-   mvprintw(2, 5, to_string(active.getX()).c_str());
-   mvprintw(3, 5, to_string(active.getY()).c_str());
-   mvprintw(4, 5, to_string(active.getWidth()).c_str());
-   mvprintw(5, 5, to_string(active.getHeight()).c_str());
-
-   mvprintw(6, 5, string("Score: ").append(to_string(score)).c_str());
-   mvprintw(7, 5, string("Level: ").append(to_string(level)).c_str());
-   mvprintw(8, 5, string("Cleared: ").append(to_string(cleared)).c_str());
-
    // TODO -> Move left/right on left/rightclick
-   // TODO -> Be able to rotate when object is partially out of screen
+   // TODO -> Increase speed with increasing level
+   // TODO -> Fix not move down bug when row is full
 
    switch (key) {
       case KEY_UP:
@@ -175,7 +170,7 @@ void Game::draw() {
       if (!canMove(active, Direction::vertical, 1)) fixActive();
    }
 
-   drawUpcoming();
+   drawStatistics();
 
    if (step % 2 == 0) refresh();
    if (step == steps)
@@ -450,7 +445,7 @@ void Game::fixActive() {
    // update level and score
 
    cleared += fullRows.size();
-   if (level == 0 ? cleared == 10 : cleared == level * 21) level++;
+   if (level == 0 ? cleared == 10 : cleared == level * 30) level++;
 
    switch (fullRows.size()) {
       case 1:
@@ -470,7 +465,12 @@ void Game::fixActive() {
    // update active object
 
    active = upcoming;
-   upcoming = Tetris(rand() % (fieldWidth - 1), startY);
+   if (currentBlock == block.size() - 1) {
+      random_shuffle(begin(block), end(block));
+      currentBlock = 0;
+   }
+   upcoming = Tetris(rand() % (fieldWidth - 1), startY, (Tetromino)block[currentBlock]);
+   currentBlock++;
    if (upcoming.getX() + upcoming.getWidth() >= fieldWidth) upcoming.moveX(fieldWidth - (upcoming.getX() + upcoming.getWidth()));  // make sure the object is in the field
    for (int i = 0; i < (rand() % 4) + 1; i++) {                                                                                    // add random rotation
       if (canRotate(upcoming)) {
@@ -479,6 +479,33 @@ void Game::fixActive() {
          break;
       }
    }
+   drawUpcoming();
+}
+
+void Game::drawStatistics() {
+   Point point = Point(fieldWidth * pointSize * pointWidth + 2, upcomingHeight + 1);
+   attron(A_BOLD);
+   mvprintw(paddingY + point.getY(), paddingX + point.getX(), "Score");
+   attroff(A_BOLD);
+
+   point.moveY(1);
+   mvprintw(paddingY + point.getY(), paddingX + point.getX(), to_string(score).c_str());
+
+   point.moveY(2);
+   attron(A_BOLD);
+   mvprintw(paddingY + point.getY(), paddingX + point.getX(), "Level");
+   attroff(A_BOLD);
+
+   point.moveY(1);
+   mvprintw(paddingY + point.getY(), paddingX + point.getX(), to_string(level).c_str());
+
+   point.moveY(2);
+   attron(A_BOLD);
+   mvprintw(paddingY + point.getY(), paddingX + point.getX(), "Lines");
+   attroff(A_BOLD);
+
+   point.moveY(1);
+   mvprintw(paddingY + point.getY(), paddingX + point.getX(), to_string(cleared).c_str());
 }
 
 void Game::gameOver() {
