@@ -32,13 +32,13 @@ const int fieldWidth = 10;
 const int menuWidth = 7;
 const int upcomingHeight = 6;  // height of the upcoming box
 const int fieldHeight = 24;
-const int steps = 10;  // should optionally be 0.5x the framerate
+const int steps = 30;  // should optionally be 0.5x the framerate
 const int startY = -2;
-const int pointSize = 1;
+const int pointSize = 2;
 const int pointWidth = 2;
 
 bool gameover = false;
-int step = steps;  // step indicating the current cycle tick; the object should only move every fourth tick
+int step = 53;  // step indicating the current cycle tick; the object should only move every fourth tick
 
 Game::Game(int framerate = 60) : active(Tetris(0, 0, (Tetromino)0)), upcoming(Tetris(0, 0, (Tetromino)0)) {
    auto seed = chrono::time_point_cast<chrono::microseconds>(chrono::system_clock::now()).time_since_epoch().count();
@@ -49,9 +49,6 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0, (Tetromino)0)), upcoming(Te
    ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);  // get terminal size
    height = size.ws_row;
    width = size.ws_col;
-   level = 0;
-   score = 0;
-   cleared = 0;
    for (int i = 0; i < block.size(); i++) block[i] = i;
    random_shuffle(begin(block), end(block));  // randomize the entries
 
@@ -63,7 +60,8 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0, (Tetromino)0)), upcoming(Te
    use_default_colors();                       // enable default terminal colors in order to get transparent background
    start_color();                              // enable color
    curs_set(0);                                // disable cursor
-   mousemask(ALL_MOUSE_EVENTS, NULL);
+   nodelay(win, TRUE);                         // disable key wait delay
+   // mousemask(ALL_MOUSE_EVENTS, NULL);          // override all mouse events
 
    init_color(9, 1000, 533, 0);    // orange color
    init_color(10, 309, 309, 309);  // light gray color
@@ -76,6 +74,7 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0, (Tetromino)0)), upcoming(Te
    init_pair(6, -1, COLOR_MAGENTA);  // T-Tetromino
    init_pair(7, -1, COLOR_RED);      // Z-Tetromino
    init_pair(8, 10, -1);             // preview dot
+   init_pair(9, -1, COLOR_WHITE);    // menu stuff
 
    window = win;
 
@@ -85,7 +84,6 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0, (Tetromino)0)), upcoming(Te
    if (active.getX() + active.getWidth() >= fieldWidth) active.moveX(fieldWidth - (active.getX() + active.getWidth()));
    upcoming = Tetris(rand() % (fieldWidth - 1), startY, (Tetromino)block[1]);
    if (upcoming.getX() + upcoming.getWidth() >= fieldWidth) upcoming.moveX(fieldWidth - (upcoming.getX() + upcoming.getWidth()));
-   currentBlock = 2;
 
    for (int i = 0; i < fieldHeight; i++) {
       vector<short> row = vector<short>(fieldWidth);
@@ -101,79 +99,93 @@ Game::Game(int framerate = 60) : active(Tetris(0, 0, (Tetromino)0)), upcoming(Te
 
 void Game::draw() {
    // get current key
-   timeout(0);  // don't wait until user input
+   timeout(0);  // don't wait for user input
    int key = getch();
    flushinp();  // clear input buffer
 
-   // draw active object
-   if (step == steps /* && false || key == 32 */) {
-      if (canMove(active, Direction::vertical, 1)) {
-         drawPoints(active.getPoints(), EMPTY_SPACE);
-         active.moveY(1);
-         drawPreviewLine(active, PREVIEW_DOT);
-         drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
+   if (key == 27 && !paused) {  // catch ESC key
+      paused = true;
+      key = -1;  // make sur the key information isn't used twice
+   }
+
+   // TODO -> "Custom" font adjustable to the point size
+   // TODO -> Save file
+   // TODO -> Auto adjust to screen size -> Error when terminal is too small
+
+   if (!gameover && !paused && !inMenu) {
+      // draw active object
+      if (step >= getDroppingFrames()) {
+         if (canMove(active, Direction::vertical, 1)) {
+            drawPoints(active.getPoints(), EMPTY_SPACE);
+            active.moveY(1);
+            drawPreviewLine(active, PREVIEW_DOT);
+            drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
+         }
+      }
+
+      switch (key) {
+         case KEY_UP:
+            if (canRotate(active)) {
+               drawPoints(active.getPoints(), EMPTY_SPACE);
+               drawPreviewLine(active, EMPTY_SPACE);
+               active.rotate();
+               drawPreviewLine(active, PREVIEW_DOT);
+               drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
+            }
+            break;
+         case KEY_DOWN: {
+            int shortest = fieldHeight - active.getY() - active.getHeight();  // default shortest distance
+            for (int i = 0; i < active.getPoints().size(); i++) {
+               Point point = active.getPoints()[i];
+               int highestFixed = getHighestFixed(point.getX(), active.getHeight() + active.getY());
+               int _shortest = highestFixed - point.getY() - 1;
+               if (_shortest < shortest) shortest = _shortest;
+            }
+            if (canMove(active, Direction::vertical, shortest)) {
+               drawPoints(active.getPoints(), EMPTY_SPACE);
+               drawPreviewLine(active, EMPTY_SPACE);
+               active.moveY(shortest);
+               score += shortest;
+               drawPreviewLine(active, PREVIEW_DOT);
+               drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
+            }
+         } break;
+         case KEY_RIGHT:
+            if (canMove(active, Direction::horizontal, 1)) {
+               drawPoints(active.getPoints(), EMPTY_SPACE);
+               drawPreviewLine(active, EMPTY_SPACE);
+               active.moveX(1);
+               drawPreviewLine(active, PREVIEW_DOT);
+               drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
+            }
+            break;
+         case KEY_LEFT:
+            if (canMove(active, Direction::horizontal, -1)) {
+               drawPoints(active.getPoints(), EMPTY_SPACE);
+               drawPreviewLine(active, EMPTY_SPACE);
+               active.moveX(-1);
+               drawPreviewLine(active, PREVIEW_DOT);
+               drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
+            }
+            break;
+      };
+
+      if (key == KEY_UP || key == KEY_DOWN || key == KEY_RIGHT || key == KEY_LEFT || step == getDroppingFrames()) {
+         if (!canMove(active, Direction::vertical, 1)) fixActive();
+      }
+   } else if (paused) {
+      if (key == 27) {
+         // restore game progress
+         drawPaused(true);
+         paused = false;  // unpause game
+      } else {
+         drawPaused();
       }
    }
 
-   // TODO -> Move left/right on left/rightclick
-   // TODO -> Increase speed with increasing level
-   // TODO -> Fix not move down bug when row is full
-
-   switch (key) {
-      case KEY_UP:
-         if (canRotate(active)) {
-            drawPoints(active.getPoints(), EMPTY_SPACE);
-            drawPreviewLine(active, EMPTY_SPACE);
-            active.rotate();
-            drawPreviewLine(active, PREVIEW_DOT);
-            drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
-         }
-         break;
-      case KEY_DOWN: {
-         int shortest = fieldHeight - active.getY() - active.getHeight();  // default shortest distance
-         for (int i = 0; i < active.getPoints().size(); i++) {
-            Point point = active.getPoints()[i];
-            int highestFixed = getHighestFixed(point.getX(), active.getHeight() + active.getY());
-            int _shortest = highestFixed - point.getY() - 1;
-            if (_shortest < shortest) shortest = _shortest;
-         }
-         if (canMove(active, Direction::vertical, shortest)) {
-            drawPoints(active.getPoints(), EMPTY_SPACE);
-            drawPreviewLine(active, EMPTY_SPACE);
-            active.moveY(shortest);
-            score += shortest;
-            drawPreviewLine(active, PREVIEW_DOT);
-            drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
-         }
-      } break;
-      case KEY_RIGHT:
-         if (canMove(active, Direction::horizontal, 1)) {
-            drawPoints(active.getPoints(), EMPTY_SPACE);
-            drawPreviewLine(active, EMPTY_SPACE);
-            active.moveX(1);
-            drawPreviewLine(active, PREVIEW_DOT);
-            drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
-         }
-         break;
-      case KEY_LEFT:
-         if (canMove(active, Direction::horizontal, -1)) {
-            drawPoints(active.getPoints(), EMPTY_SPACE);
-            drawPreviewLine(active, EMPTY_SPACE);
-            active.moveX(-1);
-            drawPreviewLine(active, PREVIEW_DOT);
-            drawPoints(active.getPoints(), OCCUPIED_SPACE, active.getType() + 1);
-         }
-         break;
-   };
-
-   if (key == KEY_UP || key == KEY_DOWN || key == KEY_RIGHT || key == KEY_LEFT || step == steps) {
-      if (!canMove(active, Direction::vertical, 1)) fixActive();
-   }
-
    drawStatistics();
-
-   if (step % 2 == 0) refresh();
-   if (step == steps)
+   refresh();
+   if (step == getDroppingFrames())
       step = 0;
    else
       step += 1;
@@ -343,21 +355,52 @@ void Game::drawBorder() {
 
 void Game::drawUpcoming() {
    // clear the current upcoming
-
    for (int i = 0; i < upcomingHeight * pointSize; i++) {
       for (int j = 0; j < menuWidth * pointSize * pointWidth; j++) {
          mvprintw(paddingY + i, paddingX + fieldWidth * pointSize * pointWidth + 1 + j, EMPTY_SPACE);
       }
    }
 
+   // calculate the padding of the new upcoming
    int _paddingX = (menuWidth - upcoming.getHeight()) / 2;
    int _paddingY = (upcomingHeight - upcoming.getWidth()) / 2;
 
+   // draw the new upcoming
    for (int i = 0; i < upcoming.getPoints().size(); i++) {
       Point point = upcoming.getPoints()[i];
       Point previewPoint = Point(fieldWidth + 1 + _paddingY + point.getX() - upcoming.getX(), _paddingX + point.getY() - upcoming.getY());
       drawPoint(previewPoint, OCCUPIED_SPACE, upcoming.getType() + 1, true);
    }
+}
+
+void Game::drawPaused(bool clear) {
+   const int pausedWidth = 3;
+   const int pausedHeight = 3;
+
+   // calculate the padding of the paused icon
+   int _paddingX = (fieldWidth - 3) / 2 + 1;
+   int _paddingY = (fieldHeight - 3) / 2;
+
+   for (int i = 0; i < fixed.size(); i++) {
+      vector<short> row = fixed[i];
+      for (int j = 0; j < row.size(); j++) {
+         if (row[j]) {
+            Point point = Point(j, i);
+            drawPoint(point, clear ? OCCUPIED_SPACE : EMPTY_SPACE, clear ? row[j] : -1);
+         }
+      }
+   }
+   drawPoints(active.getPoints(), clear ? OCCUPIED_SPACE : EMPTY_SPACE, clear ? active.getType() + 1 : -1);
+   if (!clear) drawPreviewLine(active, EMPTY_SPACE);
+
+   for (int i = 0; i < pausedWidth * pausedHeight; i++) {
+      int row = i / pausedWidth;
+      int rest = i % pausedWidth;
+      Point point = Point(_paddingX + rest, _paddingY + row);
+      if (rest == 0 || rest == pausedWidth - 1) drawPoint(point, clear ? EMPTY_SPACE : OCCUPIED_SPACE, clear ? -1 : 9);
+   }
+
+   if (clear) drawPreviewLine(active, PREVIEW_DOT);
 }
 
 void Game::fixActive() {
@@ -381,13 +424,12 @@ void Game::fixActive() {
       if (!existing) modifiedRows.push_back(point.getY());
    }
 
-   if (outOfScreen || active.getY() == 0) {
+   if (outOfScreen || active.getY() <= 0) {
       gameOver();
       return;
    }
 
    // clear full rows
-
    vector<int> fullRows = vector<int>();
 
    for (int i = 0; i < modifiedRows.size(); i++) {
@@ -410,9 +452,10 @@ void Game::fixActive() {
       }
    }
 
-   // TODO -> When multiple rows are full the highest gets cleared
+   // sort full rows in ascending order
+   sort(fullRows.begin(), fullRows.end());
 
-   for (int i = 0; i < fullRows.size(); i++) {  // highest row is earliest in the array
+   for (int i = 0; i < fullRows.size(); i++) {
       int highestY = fieldHeight;
       for (int i = 0; i < fieldWidth; i++) {  // determine highest occupied row
          int highest = getHighestFixed(i);
@@ -445,7 +488,7 @@ void Game::fixActive() {
    // update level and score
 
    cleared += fullRows.size();
-   if (level == 0 ? cleared == 10 : cleared == level * 30) level++;
+   if (level == 0 ? cleared >= 10 : cleared >= level * 30) level++;
 
    switch (fullRows.size()) {
       case 1:
@@ -483,7 +526,7 @@ void Game::fixActive() {
 }
 
 void Game::drawStatistics() {
-   Point point = Point(fieldWidth * pointSize * pointWidth + 2, upcomingHeight + 1);
+   Point point = Point(fieldWidth * pointSize * pointWidth + 2, upcomingHeight * pointSize + 1 * pointSize);
    attron(A_BOLD);
    mvprintw(paddingY + point.getY(), paddingX + point.getX(), "Score");
    attroff(A_BOLD);
@@ -508,7 +551,46 @@ void Game::drawStatistics() {
    mvprintw(paddingY + point.getY(), paddingX + point.getX(), to_string(cleared).c_str());
 }
 
+int Game::getDroppingFrames() {
+   switch (level) {
+      case 0:
+      case 1:
+      case 2:
+      case 3:
+      case 4:
+      case 5:
+         return 53 - level * 4;
+      case 6:
+         return 28;
+      case 7:
+         return 22;
+      case 8:
+         return 17;
+      case 9:
+         return 11;
+      case 10:
+      case 11:
+      case 12:
+      case 13:
+         return 10 + (10 - level);
+      case 14:
+      case 15:
+         return 6;
+      case 16:
+      case 17:
+         return 5;
+      case 18:
+      case 19:
+         return 4;
+      case 20:
+         return 3;
+      default:
+         return 60;
+   }
+}
+
 void Game::gameOver() {
-   gameover = true;
    mvprintw(30, 5, "Game over");
+   refresh();
+   gameover = true;
 }

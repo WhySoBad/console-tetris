@@ -35,8 +35,10 @@ class Game {
    void drawBorder();                                                                     // draw the border around the field
    void drawUpcoming();                                                                   // draw the upcoming object in its box
    void drawStatistics();                                                                 // draw the statistics below the upcoming object
+   void drawPaused(bool clear = false);                                                   // draw the paused icon
    void gameOver();                                                                       // handle a game over
    void draw();                                                                           // draw method
+   int getDroppingFrames();                                                               // get how many frames have to pass until the tile drops one row
    vector<vector<short>> fixed;                                                           // list with the "coordinates" of all fixed points [0 = not fixed, all other numbers equal the fixed color]
    array<int, 7> block;                                                                   // block with the upcoming 7 object types
    WINDOW *window;                                                                        // active window
@@ -44,12 +46,14 @@ class Game {
    Tetris upcoming;                                                                       // next tetris-object
    int paddingX;                                                                          // padding to center the field on the x-axis
    int paddingY;                                                                          // padding to center the field on the y-axis
-   int level;                                                                             // level of the current tetris round
-   int score;                                                                             // score of the current tetris round
-   int cleared;                                                                           // amount of cleared lines
-   bool running = false;                                                                  // boolean whether the game cycle is running or not
+   int level = 0;                                                                         // level of the current tetris round
+   int score = 0;                                                                         // score of the current tetris round
+   int cleared = 0;                                                                       // amount of cleared lines
    int height;                                                                            // modifiable height of the game
    int width;                                                                             // modifiable width of the game
    int framerate;                                                                         // modifiable framerate of the game
-   int currentBlock;                                                                      // the current block
+   int currentBlock = 2;                                                                  // the current block
+   bool running = false;                                                                  // boolean whether the game cycle is running or not
+   bool paused = false;                                                                   // boolean whether the game is currently paused
+   bool inMenu = false;                                                                   // boolean whether the game is currently in menu
 };

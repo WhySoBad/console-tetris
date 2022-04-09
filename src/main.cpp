@@ -3,7 +3,7 @@
 #include "game.h"
 using namespace std;
 
-Game game = Game(20);
+Game game = Game(60);
 
 void handleSignal(int signum) {
    game.stop();
