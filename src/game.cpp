@@ -35,7 +35,10 @@ const int fieldHeight = 24;
 const int steps = 30;  // should optionally be 0.5x the framerate
 const int startY = -2;
 const int pointSize = 2;
+const int letterSize = 1;
 const int pointWidth = 2;
+const int letterHeight = 5;
+const int letterWidth = 3;
 
 bool gameover = false;
 int step = 53;  // step indicating the current cycle tick; the object should only move every fourth tick
@@ -225,12 +228,13 @@ void Game::drawPoints(array<Point, 4> points, const char *character, int color) 
    }
 }
 
-void Game::drawPoint(Point &point, const char *character, int color, bool ignore) {
+void Game::drawPoint(Point &point, const char *character, int color, bool ignore, bool letter) {
+   int factor = (letter ? letterSize : pointSize);
    if (ignore || isInScreen(point)) {
       if (color >= 0) attron(COLOR_PAIR(color));
-      for (int i = 0; i < pow(pointSize, 2) * pointWidth; i++) {
+      for (int i = 0; i < pow(factor, 2) * pointWidth; i++) {
          int row = i / pointWidth / pointSize;
-         mvprintw(pointSize * point.getY() + paddingY + row, pointWidth * pointSize * point.getX() + paddingX + i - (row * pointWidth * pointSize), character);
+         mvprintw(factor * point.getY() + paddingY + row, pointWidth * factor * point.getX() + paddingX + i - (row * pointWidth * factor), character);
       }
       if (color >= 0) attroff(COLOR_PAIR(color));
    }
@@ -403,6 +407,108 @@ void Game::drawPaused(bool clear) {
    if (clear) drawPreviewLine(active, PREVIEW_DOT);
 }
 
+void Game::drawNumber(Point &point, int number, bool clear) {
+   string chars = to_string(number);
+   for (int i = 0; i < chars.length(); i++) {
+      int digit = stoi(chars.substr(i, 1));
+      int offsetX = letterWidth * i + i * letterSize;
+      Point position = Point(point.getX() + offsetX, point.getY());
+      drawDigit(position, digit, clear);
+   }
+}
+
+void Game::drawDigit(Point &point, short digit, bool clear) {
+   array<bool, 7> segments = array<bool, 7>({false, false, false, false, false, false, false});  // 7 segment
+   switch (digit) {
+      case 0: {
+         for (int i = 0; i < segments.size(); i++) segments[i] = true;
+         segments[6] = false;
+         break;
+      }
+      case 1: {
+         segments[1] = true;
+         segments[2] = true;
+         break;
+      }
+      case 2: {
+         for (int i = 0; i < segments.size(); i++) segments[i] = true;
+         segments[2] = false;
+         segments[5] = false;
+         break;
+      }
+      case 3: {
+         for (int i = 0; i < segments.size(); i++) segments[i] = true;
+         segments[4] = false;
+         segments[5] = false;
+         break;
+      }
+      case 4: {
+         for (int i = 0; i < segments.size(); i++) segments[i] = true;
+         segments[0] = false;
+         segments[3] = false;
+         segments[4] = false;
+         break;
+      }
+      case 5: {
+         for (int i = 0; i < segments.size(); i++) segments[i] = true;
+         segments[1] = false;
+         segments[4] = false;
+         break;
+      }
+      case 6: {
+         for (int i = 0; i < segments.size(); i++) segments[i] = true;
+         segments[1] = false;
+         break;
+      }
+      case 7: {
+         segments[0] = true;
+         segments[1] = true;
+         segments[2] = true;
+         break;
+      }
+      case 8: {
+         for (int i = 0; i < segments.size(); i++) segments[i] = true;
+         break;
+      }
+      case 9: {
+         for (int i = 0; i < segments.size(); i++) segments[i] = true;
+         segments[4] = false;
+         break;
+      }
+   }
+
+   int padding = letterWidth - 1;
+
+   for (int i = 0; i < segments.size(); i++) {
+      if (!segments[i]) continue;
+      switch (i) {
+         case 0:
+         case 3:
+         case 6: {
+            int _x = point.getX();
+            int _y = point.getY() + (i == 3 ? padding * 2 : i == 6 ? padding : 0);
+            for (int j = 0; j < letterWidth; j++) {
+               Point point = Point(_x + j, _y);
+               drawPoint(point, clear ? EMPTY_SPACE : OCCUPIED_SPACE, clear ? -1 : 9, true, true);
+            }
+            break;
+         }
+         case 1:
+         case 2:
+         case 4:
+         case 5: {
+            int _x = point.getX() + (i == 1 || i == 2 ? padding : 0);
+            int _y = point.getY() + (i == 2 || i == 4 ? padding : 0);
+            for (int j = 0; j < letterWidth; j++) {
+               Point point = Point(_x, _y + j);
+               drawPoint(point, clear ? EMPTY_SPACE : OCCUPIED_SPACE, clear ? -1 : 9, true, true);
+            }
+            break;
+         }
+      }
+   }
+}
+
 void Game::fixActive() {
    drawPreviewLine(active, EMPTY_SPACE);  // remove preview line
    bool outOfScreen = false;
@@ -532,9 +638,12 @@ void Game::drawStatistics() {
    attroff(A_BOLD);
 
    point.moveY(1);
-   mvprintw(paddingY + point.getY(), paddingX + point.getX(), to_string(score).c_str());
+   Point position = Point(fieldWidth * (pointSize / letterSize) + 1, upcomingHeight * (pointSize / letterSize) + 2);
+   drawNumber(position, 88888888, true);
+   drawNumber(position, score);
+   // mvprintw(paddingY + point.getY(), paddingX + point.getX(), to_string(score).c_str());
 
-   point.moveY(2);
+   point.moveY(5);
    attron(A_BOLD);
    mvprintw(paddingY + point.getY(), paddingX + point.getX(), "Level");
    attroff(A_BOLD);
