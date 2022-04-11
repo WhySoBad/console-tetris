@@ -36,8 +36,9 @@ class Game {
    void drawUpcoming();                                                                                        // draw the upcoming object in its box
    void drawStatistics();                                                                                      // draw the statistics below the upcoming object
    void drawPaused(bool clear = false);                                                                        // draw the paused icon
-   void drawNumber(Point &point, int number, bool clear = false);                                              // draw a number
+   void drawNumber(Point &point, float number, bool clear = false);                                            // draw a number
    void drawDigit(Point &point, short digit, bool clear = false);                                              // draw a single digit
+   void drawCharacter(Point &point, char character, bool clear = false);                                       // draw a single character
    void gameOver();                                                                                            // handle a game over
    void draw();                                                                                                // draw method
    int getDroppingFrames();                                                                                    // get how many frames have to pass until the tile drops one row

@@ -407,13 +407,29 @@ void Game::drawPaused(bool clear) {
    if (clear) drawPreviewLine(active, PREVIEW_DOT);
 }
 
-void Game::drawNumber(Point &point, int number, bool clear) {
+void Game::drawNumber(Point &point, float number, bool clear) {
+   int factor = 0;
+   while (number > 1000) {
+      number /= 1000;
+      factor++;
+   };
    string chars = to_string(number);
+
    for (int i = 0; i < chars.length(); i++) {
-      int digit = stoi(chars.substr(i, 1));
       int offsetX = letterWidth * i + i * letterSize;
       Point position = Point(point.getX() + offsetX, point.getY());
-      drawDigit(position, digit, clear);
+      if (chars[i] == '.') {
+         drawCharacter(position, chars[i], clear);
+      } else {
+         int digit = stoi(chars.substr(i, 1));
+         drawDigit(position, digit, clear);
+      }
+   }
+
+   if (factor > 0) {
+      int offsetX = letterWidth * chars.length() + chars.length() * letterSize;
+      Point position = Point(point.getX() + offsetX, point.getY());
+      drawCharacter(position, factor == 1 ? 'K' : 'M', clear);
    }
 }
 
@@ -488,8 +504,8 @@ void Game::drawDigit(Point &point, short digit, bool clear) {
             int _x = point.getX();
             int _y = point.getY() + (i == 3 ? padding * 2 : i == 6 ? padding : 0);
             for (int j = 0; j < letterWidth; j++) {
-               Point point = Point(_x + j, _y);
-               drawPoint(point, clear ? EMPTY_SPACE : OCCUPIED_SPACE, clear ? -1 : 9, true, true);
+               Point position = Point(_x + j, _y);
+               drawPoint(position, clear ? EMPTY_SPACE : OCCUPIED_SPACE, clear ? -1 : 9, true, true);
             }
             break;
          }
@@ -500,12 +516,48 @@ void Game::drawDigit(Point &point, short digit, bool clear) {
             int _x = point.getX() + (i == 1 || i == 2 ? padding : 0);
             int _y = point.getY() + (i == 2 || i == 4 ? padding : 0);
             for (int j = 0; j < letterWidth; j++) {
-               Point point = Point(_x, _y + j);
-               drawPoint(point, clear ? EMPTY_SPACE : OCCUPIED_SPACE, clear ? -1 : 9, true, true);
+               Point position = Point(_x, _y + j);
+               drawPoint(position, clear ? EMPTY_SPACE : OCCUPIED_SPACE, clear ? -1 : 9, true, true);
             }
             break;
          }
       }
+   }
+}
+
+void Game::drawCharacter(Point &point, char character, bool clear) {
+   array<bool, letterHeight *letterWidth> segments = array<bool, letterHeight * letterWidth>();
+   for (int i = 0; i < segments.size(); i++) segments[i] = false;
+
+   switch (character) {
+      case 'K': {
+         for (int i = 0; i < segments.size(); i++) {
+            bool atBeginning = i % letterWidth == 0;
+            bool atEnd = i % letterWidth == letterWidth - 1;
+            bool middleY = i / letterWidth == (int)(letterHeight / 2);
+            if (atBeginning || atEnd && !middleY || !atBeginning && !atEnd && middleY) segments[i] = true;
+         }
+         break;
+      }
+      case 'M': {
+         for (int i = 0; i < segments.size(); i++) {
+            bool atBeginning = i % letterWidth == 0;
+            bool atEnd = i % letterWidth == letterWidth - 1;
+            if (atBeginning || atEnd || i / letterWidth == 1 && !atBeginning && !atEnd) segments[i] = true;
+         }
+         break;
+      }
+      case '.': {
+         segments[segments.size() - (int)(letterWidth / 2) - 1] = true;
+      }
+   }
+
+   for (int i = 0; i < segments.size(); i++) {
+      if (!segments[i]) continue;
+      int _x = i % letterWidth + point.getX();
+      int _y = i / letterWidth + point.getY();
+      Point position = Point(_x, _y);
+      drawPoint(position, clear ? EMPTY_SPACE : OCCUPIED_SPACE, clear ? -1 : 9, true, true);
    }
 }
 
