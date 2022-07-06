@@ -1,5 +1,6 @@
 /build
 .idea
+bin
 
 # Created by https://www.toptal.com/developers/gitignore/api/clion,c++,jetbrains
 # Edit at https://www.toptal.com/developers/gitignore?templates=clion,c++,jetbrains

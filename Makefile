@@ -7,7 +7,7 @@ DIRECTORY=build
 # log prefix
 PREFIX=[tetris]
 
-# create the output director and compile to source code into it
+# create the output directory and compile to source code into it
 all: directory compile
 
 # script to compile the project

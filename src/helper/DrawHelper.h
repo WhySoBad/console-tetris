@@ -2,8 +2,8 @@
 #define CONSOLE_TETRIS_DRAWHELPER_H
 
 
-#include "../tetris.h"
-#include "../game.h"
+#include "../Tetris.h"
+#include "TetrisHelper.h"
 
 class DrawHelper {
 public:
@@ -25,11 +25,23 @@ public:
     static void drawTetris(Tetris *tetris);
 
     /**
+     * Draw the paused icon into the upcoming box
+     */
+
+    static void drawPaused();
+
+    /**
      * Clear a tetris object
      * @param tetris tetris object to be cleared
      */
 
     static void clearTetris(Tetris *tetris);
+
+    /**
+     * Clear the field
+     */
+
+    static void clearField();
 
     /**
      * Draw a point

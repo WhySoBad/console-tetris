@@ -1,6 +1,5 @@
 #include "ConfigHelper.h"
 #include "fstream"
-#include "iostream"
 #include "filesystem"
 #include "istream"
 #include "unordered_map"
@@ -22,7 +21,7 @@ int ConfigHelper::getHighestLevel() {
 }
 
 void ConfigHelper::setHighscore(unsigned int highscore) {
-    highScore += static_cast<int>(highscore);
+    highScore = static_cast<int>(highscore);
     ConfigHelper::writeConfig();
 }
 
@@ -50,29 +49,33 @@ void ConfigHelper::readConfig() {
     if(!std::filesystem::exists(path)) ConfigHelper::writeConfig();
     std::ifstream input(path.append("/console-tetris.conf"));
     std::string line;
-    std::unordered_map<std::string, std::string> config;
+    std::unordered_map<std::string, int> config;
     while(getline(input, line)) {
-        std::string key;
-        if(getline(std::istringstream(line), key)) {
-            std::string value;
-            if(getline(std::istringstream(), value)) config.insert_or_assign(key, value);
+        std::string key, value;
+        key = line.substr(0, line.find('='));
+        value = line.substr(line.find('=') + 1, line.length() - 1);
+        try {
+            config.insert_or_assign(key, static_cast<int>(std::stoi(value)));
+        } catch(...) {
+            config.insert_or_assign(key, 0);
         }
     }
     input.close();
 
-    auto readItem = [&config](std::string key, int &replace) {
+    auto getItem = [&config](std::string key) -> int {
         try {
-            std::string value = config.at(key);
-            int number = replace;
-            try {
-                number = std::stoi(value);
-            } catch(std::invalid_argument &exception) {}
-        } catch(const std::out_of_range &exception) {}
+            return config.at(key);
+        } catch(...) {
+            return 0;
+        }
     };
-    readItem("highscore", highScore);
-    readItem("rounds", rounds);
-    readItem("destroyedlines", destroyedLines);
-    readItem("highestlevel", highestLevel);
+
+    highScore = getItem("highscore");
+    rounds = getItem("rounds");
+    destroyedLines = getItem("destroyedlines");
+    highestLevel = getItem("highestlevel");
+
+    ConfigHelper::writeConfig(); // make sure that the config is right formatted
 }
 
 void ConfigHelper::writeConfig() {

@@ -2,7 +2,7 @@
 #define CONSOLE_TETRIS_FONTHELPER_H
 
 
-#include "../tetris.h"
+#include "../Tetris.h"
 
 class FontHelper {
 public:

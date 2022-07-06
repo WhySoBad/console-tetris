@@ -1,8 +1,6 @@
 #ifndef CONSOLE_TETRIS_CONFIGHELPER_H
 #define CONSOLE_TETRIS_CONFIGHELPER_H
 
-#define CONFIG_PATH   ".config/console-tetris/console-tetris.conf"
-
 class ConfigHelper {
 public:
     /**

@@ -1,9 +1,9 @@
 #include <csignal>
 
-#include "game.h"
+#include "Game.h"
 using namespace std;
 
-Game game = Game(60);
+Game game = Game();
 
 void handleSignal(int signum) {
    game.stop();

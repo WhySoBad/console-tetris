@@ -1,6 +1,6 @@
 #include "FontHelper.h"
-#include "../game.h"
 #include "DrawHelper.h"
+#include "TetrisHelper.h"
 
 void FontHelper::drawNumber(Point *point, float number, bool clear) {
     int power = 0;

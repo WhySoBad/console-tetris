@@ -1,8 +1,12 @@
+#include "algorithm"
+#include "sstream"
 #include "csignal"
 #include "DrawHelper.h"
 #include "TetrisHelper.h"
 #include "cmath"
 #include "sys/ioctl.h"
+#include "ncurses.h"
+#include "ConfigHelper.h"
 
 void DrawHelper::drawTetris(Tetris *tetris, const char *character, int color) {
     for (Point point : tetris->getPoints()) drawPoint(&point, character, color);
@@ -12,8 +16,33 @@ void DrawHelper::drawTetris(Tetris *tetris) {
     DrawHelper::drawTetris(tetris, OCCUPIED_SPACE, tetris->getType() + 1);
 }
 
+void DrawHelper::drawPaused() {
+    DrawHelper::clearUpcoming();
+    int startX = FIELD_WIDTH + 2;
+    int endX = FIELD_WIDTH + MENU_WIDTH - 3;
+    int startY = 1;
+    int endY = UPCOMING_HEIGHT - 1;
+
+    for (int k = 0; k < endY - startY; ++k) {
+        auto *p1 = new Point(startX, startY + k);
+        auto *p2 = new Point(endX, startY + k);
+        DrawHelper::drawPoint(p1, OCCUPIED_SPACE, 9, true);
+        DrawHelper::drawPoint(p2, OCCUPIED_SPACE, 9, true);
+    }
+}
+
 void DrawHelper::clearTetris(Tetris *tetris) {
     DrawHelper::drawTetris(tetris, EMPTY_SPACE);
+}
+
+void DrawHelper::clearField() {
+    for (int k = 0; k < FIELD_HEIGHT * POINT_SIZE; ++k) {
+        for (int m = 0; m < FIELD_WIDTH * POINT_SIZE * POINT_WIDTH; ++m) {
+            int x = DrawHelper::getPaddingX() + m;
+            int y = DrawHelper::getPaddingY() + k;
+            DrawHelper::printAt(x, y, EMPTY_SPACE);
+        }
+    }
 }
 
 void DrawHelper::drawPoint(Point *point, const char *character, int color, bool ignore, bool letter) {
@@ -23,6 +52,7 @@ void DrawHelper::drawPoint(Point *point, const char *character, int color, bool 
         for (int k = 0; k < pow(scale, 2) * POINT_WIDTH; ++k) {
             int row = k / POINT_WIDTH / POINT_SIZE;
             int x = POINT_WIDTH * scale * point->getX() + DrawHelper::getPaddingX() + k - row * POINT_WIDTH * scale;
+            if(point->getX() > FIELD_WIDTH && point->getX() < FIELD_WIDTH + MENU_WIDTH) x++;
             int y = scale * point->getY() + DrawHelper::getPaddingY() + row;
             DrawHelper::printAt(x, y, character);
         }
@@ -111,19 +141,39 @@ void DrawHelper::clearUpcoming() {
 
 void DrawHelper::drawStatistics(int score, int level, int lines) {
     auto * point = new Point(DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + 2, DrawHelper::getPaddingY() + UPCOMING_HEIGHT * POINT_SIZE + 1 * POINT_SIZE);
-
+    auto * scPoint = new Point(DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + 2, DrawHelper::getPaddingY() + FIELD_HEIGHT * POINT_SIZE - 1 * POINT_SIZE);
     auto drawStatistic = [&point](const char * name, int value) {
         attron(A_BOLD);
         DrawHelper::printAt(point->getX(), point->getY(), name);
         attroff(A_BOLD);
         point->moveY(1);
-        DrawHelper::printAt(point->getX(), point->getY(), to_string(value).c_str());
+        std::stringstream stream;
+        stream.imbue(std::locale(""));
+        stream << value;
+        std::string str = stream.str();
+        std::replace(str.begin(), str.end(), ',', '\'');
+        DrawHelper::printAt(point->getX(), point->getY(), str.c_str());
         point->moveY(2);
     };
 
+    auto drawShortcut = [&scPoint](const std::string& shortcut) {
+        std::string firstLetter = shortcut.substr(0, 1);
+        DrawHelper::printAt(scPoint->getX(), scPoint->getY(), "[");
+        DrawHelper::printAt(scPoint->getX() + 1, scPoint->getY(), shortcut.substr(0, 1).c_str());
+        DrawHelper::printAt(scPoint->getX() + 2, scPoint->getY(), "]");
+        DrawHelper::printAt(scPoint->getX() + 3, scPoint->getY(), std::string(shortcut).substr(1, shortcut.length() - 1).c_str());
+        scPoint->moveY(-2);
+    };
+
     drawStatistic("Score", score);
+    drawStatistic("Highscore", ConfigHelper::getHighscore());
     drawStatistic("Level", level);
     drawStatistic("Lines", lines);
+
+    // add shortcut hints
+/*    drawShortcut("Exit");
+    drawShortcut("Reset");
+    drawShortcut("Pause");*/
 }
 
 void DrawHelper::clearStatistics() {
@@ -154,6 +204,8 @@ void DrawHelper::initialize() {
     paddingX = 0;
     paddingY = 0;
 
+    setlocale(LC_ALL, "");
+
     // setup ncurses
     WINDOW *win = newwin(height, width, 0, 0); // create a new ncurses window
     initscr(); // init the screen
@@ -178,6 +230,8 @@ void DrawHelper::initialize() {
     init_pair(7, -1, COLOR_RED);      // Z-Tetromino
     init_pair(8, 10, -1);             // preview dot
     init_pair(9, -1, COLOR_WHITE);    // menu stuff
+
+
 }
 
 int DrawHelper::getPaddingX() {
