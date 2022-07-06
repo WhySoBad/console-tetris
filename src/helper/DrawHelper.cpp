@@ -1,5 +1,192 @@
-//
-// Created by corsin on 7/5/22.
-//
-
+#include "csignal"
 #include "DrawHelper.h"
+#include "TetrisHelper.h"
+#include "cmath"
+#include "sys/ioctl.h"
+
+void DrawHelper::drawTetris(Tetris *tetris, const char *character, int color) {
+    for (Point point : tetris->getPoints()) drawPoint(&point, character, color);
+}
+
+void DrawHelper::drawTetris(Tetris *tetris) {
+    DrawHelper::drawTetris(tetris, OCCUPIED_SPACE, tetris->getType() + 1);
+}
+
+void DrawHelper::clearTetris(Tetris *tetris) {
+    DrawHelper::drawTetris(tetris, EMPTY_SPACE);
+}
+
+void DrawHelper::drawPoint(Point *point, const char *character, int color, bool ignore, bool letter) {
+    int scale = letter ? LETTER_SIZE : POINT_SIZE;
+    if(ignore || TetrisHelper::isPointInScreen(point)) {
+        DrawHelper::useColor(color);
+        for (int k = 0; k < pow(scale, 2) * POINT_WIDTH; ++k) {
+            int row = k / POINT_WIDTH / POINT_SIZE;
+            int x = POINT_WIDTH * scale * point->getX() + DrawHelper::getPaddingX() + k - row * POINT_WIDTH * scale;
+            int y = scale * point->getY() + DrawHelper::getPaddingY() + row;
+            DrawHelper::printAt(x, y, character);
+        }
+        DrawHelper::useColor(color, true);
+    }
+}
+
+void DrawHelper::drawBorder() {
+    struct winsize size{};
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
+    int height = size.ws_row;
+    int width = size.ws_col;
+    int totalFieldHeight = FIELD_HEIGHT * POINT_SIZE + 2;
+    int totalFieldWidth = (FIELD_WIDTH + MENU_WIDTH) * POINT_SIZE * POINT_WIDTH + 3;
+
+    // calculate field padding on both axes
+    if(width > totalFieldWidth) paddingX = (int) (width - totalFieldWidth) / 2;
+    else if(width < totalFieldWidth) {} // handle small terminal error
+    if(height > totalFieldHeight) paddingY = (int) (height - totalFieldHeight) / 2;
+    else if(height < totalFieldHeight) {} // handle small terminal error
+
+    // draw the border of the field
+    for (int k = 0; k < totalFieldHeight; ++k) {
+        for (int m = 0; m < totalFieldWidth; ++m) {
+            int x = DrawHelper::getPaddingX() + m - 1;
+            int y = DrawHelper::getPaddingY() + k - 1;
+            if(k == 0 && m == 0) DrawHelper::printAt(x, y, TOP_LEFT_CORNER);
+            else if(k == 0 && m == totalFieldWidth - 1) DrawHelper::printAt(x, y, TOP_RIGHT_CORNER);
+            else if(k == totalFieldHeight - 1 && m == 0) DrawHelper::printAt(x, y, BOTTOM_LEFT_CORNER);
+            else if(k == totalFieldHeight - 1 && m == totalFieldWidth - 1) DrawHelper::printAt(x, y, BOTTOM_RIGHT_CORNER);
+            else if(k == 0 || k == totalFieldHeight - 1) DrawHelper::printAt(x, y, HORIZONTAL_BORDER);
+            else if(m == 0 || m == totalFieldWidth - 1) DrawHelper::printAt(x, y, VERTICAL_BORDER);
+        }
+    }
+
+    // draw menu separator line
+    for (int k = 0; k < totalFieldHeight; ++k) {
+        int x = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH;
+        int y = DrawHelper::getPaddingY() + k - 1;
+        if(k == 0) DrawHelper::printAt(x, y, TOP_CROSSING_BORDER);
+        else if(k == totalFieldHeight - 1) DrawHelper::printAt(x, y, BOTTOM_CROSSING_BORDER);
+        else DrawHelper::printAt(x, y, VERTICAL_BORDER);
+    }
+
+    // draw upcoming separator line
+    for (int k = 0; k < MENU_WIDTH * POINT_SIZE * POINT_WIDTH + 2; ++k) {
+        int x = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + k;
+        int y = DrawHelper::getPaddingY() + UPCOMING_HEIGHT * POINT_SIZE;
+        if(k == 0) DrawHelper::printAt(x, y, LEFT_CROSSING_BORDER);
+        else if(k == MENU_WIDTH * POINT_SIZE * POINT_WIDTH + 1) DrawHelper::printAt(x, y, RIGHT_CROSSING_BORDER);
+        else DrawHelper::printAt(x, y, HORIZONTAL_BORDER);
+    }
+}
+
+void DrawHelper::drawPreviewLine(Tetris *tetris, const char *character) {
+    for (Point point : tetris->getPoints()) {
+        if(point.getY() != tetris->getY() + tetris->getHeight() - 1) continue; // only let the lowest points pass
+        for (int k = 0; k < TetrisHelper::getHighestFixed(point.getX(), tetris->getHeight() + tetris->getY()) - point.getY(); ++k) {
+            auto * dot = new Point(point.getX(), point.getY() + 1 + k);
+            if(TetrisHelper::isPointInScreen(dot) && !TetrisHelper::getFixedPoint(dot->getX(), dot->getY())) DrawHelper::drawPoint(dot, character, 8);
+        }
+    }
+}
+
+void DrawHelper::drawUpcoming(Tetris *tetris) {
+    DrawHelper::clearUpcoming();
+
+    int offsetX = (MENU_WIDTH - tetris->getHeight()) / 2;
+    int offsetY = (UPCOMING_HEIGHT - tetris->getWidth()) / 2;
+
+    for (Point point : tetris->getPoints()) {
+        auto * preview = new Point(FIELD_WIDTH + 1 + offsetY + point.getX() - tetris->getX(), offsetX + point.getY() - tetris->getY());
+        DrawHelper::drawPoint(preview, OCCUPIED_SPACE, tetris->getType() + 1, true);
+    }
+}
+
+void DrawHelper::clearUpcoming() {
+    for (int k = 0; k < UPCOMING_HEIGHT * POINT_SIZE; ++k) {
+        for (int m = 0; m < MENU_WIDTH * POINT_SIZE * POINT_WIDTH; ++m) {
+            int x = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + 1 + m;
+            int y = DrawHelper::getPaddingY() + k;
+            DrawHelper::printAt(x, y, EMPTY_SPACE);
+        }
+    }
+}
+
+void DrawHelper::drawStatistics(int score, int level, int lines) {
+    auto * point = new Point(DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + 2, DrawHelper::getPaddingY() + UPCOMING_HEIGHT * POINT_SIZE + 1 * POINT_SIZE);
+
+    auto drawStatistic = [&point](const char * name, int value) {
+        attron(A_BOLD);
+        DrawHelper::printAt(point->getX(), point->getY(), name);
+        attroff(A_BOLD);
+        point->moveY(1);
+        DrawHelper::printAt(point->getX(), point->getY(), to_string(value).c_str());
+        point->moveY(2);
+    };
+
+    drawStatistic("Score", score);
+    drawStatistic("Level", level);
+    drawStatistic("Lines", lines);
+}
+
+void DrawHelper::clearStatistics() {
+    for (int k = 0; k < (FIELD_HEIGHT - UPCOMING_HEIGHT) * POINT_SIZE - 1; ++k) {
+        for (int m = 0; m < MENU_WIDTH * POINT_SIZE * POINT_WIDTH; ++m) {
+            int x = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + 1 + m;
+            int y = DrawHelper::getPaddingY() + UPCOMING_HEIGHT * POINT_SIZE + 1 + k;
+            DrawHelper::printAt(x, y, EMPTY_SPACE);
+        }
+    }
+}
+
+void DrawHelper::useColor(int color, bool disable) {
+    if(color >= 0) {
+        if(!disable) attron(COLOR_PAIR(color));
+        else attroff(COLOR_PAIR(color));
+    }
+}
+
+void DrawHelper::printAt(int x, int y, const char *characters) {
+    mvprintw(y, x, "%s", characters);
+}
+
+void DrawHelper::initialize() {
+    struct winsize size{};
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
+    int height = size.ws_row, width = size.ws_col;
+    paddingX = 0;
+    paddingY = 0;
+
+    // setup ncurses
+    WINDOW *win = newwin(height, width, 0, 0); // create a new ncurses window
+    initscr(); // init the screen
+    cbreak(); // enable cbreak mode to get inputs without pressing enter and interruption signals
+    noecho(); // disable character echoing
+    keypad(stdscr, TRUE); // enable arrow-keys
+    use_default_colors(); // enable default terminal colors for a transparent background
+    start_color(); // enable colors
+    curs_set(0); // disable cursor
+    nodelay(win, TRUE); // disable key wait delay
+
+    // add color pairs
+    init_color(9, 1000, 533, 0);    // orange color
+    init_color(10, 309, 309, 309);  // light gray color
+
+    init_pair(1, -1, COLOR_CYAN);     // I-Tetromino
+    init_pair(2, -1, COLOR_BLUE);     // J-Tetromino
+    init_pair(3, -1, 9);              // L-Tetromino
+    init_pair(4, -1, COLOR_YELLOW);   // O-Tetromino
+    init_pair(5, -1, COLOR_GREEN);    // S-Tetromino
+    init_pair(6, -1, COLOR_MAGENTA);  // T-Tetromino
+    init_pair(7, -1, COLOR_RED);      // Z-Tetromino
+    init_pair(8, 10, -1);             // preview dot
+    init_pair(9, -1, COLOR_WHITE);    // menu stuff
+}
+
+int DrawHelper::getPaddingX() {
+    return paddingX;
+}
+
+int DrawHelper::getPaddingY() {
+    return paddingY;
+}
+
+
+

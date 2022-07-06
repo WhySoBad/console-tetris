@@ -1,3 +1,6 @@
+#ifndef CONSOLE_TETRIS_TETRIS_H
+#define CONSOLE_TETRIS_TETRIS_H
+
 #include <array>
 #include <string>
 using namespace std;
@@ -49,3 +52,4 @@ class Tetris : public BoundingBox {
    Point _points[4];  // modifiable points of the tetris-object
    int step;          // modifiable rotation step of the tetris-object
 };
+#endif
