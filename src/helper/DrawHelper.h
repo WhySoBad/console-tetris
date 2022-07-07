@@ -127,6 +127,12 @@ public:
 
     [[nodiscard]] static int getPaddingY();
 
+    /**
+     * Get the ui size
+     * @return ui size
+     */
+
+    [[nodiscard]] static int getUiSize();
 
 
     /**
@@ -136,9 +142,9 @@ public:
     static void initialize();
 
 private:
-    static WINDOW * window;
     static inline int paddingX = 0;
     static inline int paddingY = 0;
+    static inline int uiSize = 2;
 };
 
 

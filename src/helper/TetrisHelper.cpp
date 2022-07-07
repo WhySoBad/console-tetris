@@ -175,4 +175,5 @@ Tetris *TetrisHelper::copyTetromino(Tetris *tetris) {
             return copy;
         }
     }
+    return tetris;
 }

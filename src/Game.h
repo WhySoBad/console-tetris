@@ -44,17 +44,10 @@ private:
     void fixActive();
 
     /**
-     * Draw the paused screen
-     * @param clear boolean whether the paused screen should be cleared
-     */
-
-    void drawPaused(bool clear = false);
-
-    /**
      * Handle a game over
      */
 
-    void gameOver();
+    static void gameOver();
 
     /**
      * Update method

@@ -1,7 +1,5 @@
-#include <csignal>
-
+#include "csignal"
 #include "Game.h"
-using namespace std;
 
 Game game = Game();
 

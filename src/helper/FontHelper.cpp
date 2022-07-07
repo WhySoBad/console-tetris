@@ -5,7 +5,7 @@
 void FontHelper::drawNumber(Point *point, float number, bool clear) {
     int power = 0;
     while (number > 1000){ number /= 1000; power++; }
-    string chars = to_string(number);
+    string chars = std::to_string(number);
 
     for (int k = 0; k < chars.length(); ++k) {
         int offsetX = LETTER_WIDTH * k + k * LETTER_SIZE;

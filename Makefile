@@ -1,8 +1,8 @@
 # output binary name
-NAME=tetris
+NAME=console-tetris
 
 # output directory name
-DIRECTORY=build
+DIRECTORY=bin
 
 # log prefix
 PREFIX=[tetris]
@@ -13,7 +13,7 @@ all: directory compile
 # script to compile the project
 compile:
 	@echo "$(PREFIX) Compiling source code"
-	@g++ -fdiagnostics-color=always -g src/*.cpp -o ${DIRECTORY}/${NAME} -lncursesw
+	@g++ -fdiagnostics-color=always -g src/*.cpp src/geometry/*.cpp src/helper/*.cpp src/tetromino/*.cpp -o ${DIRECTORY}/${NAME} -lncursesw
 	@echo "$(PREFIX) Saved binary file to '${CURDIR}/${DIRECTORY}/${NAME}'"
 
 # script to create the output directory

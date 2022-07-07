@@ -24,7 +24,7 @@
 #define UPCOMING_HEIGHT 6 // height of the upcoming box
 #define FIELD_HEIGHT    24 // height of the game field
 #define START_Y         -2
-#define POINT_SIZE      1 // ui size [1 = small; 2 = big]
+// #define POINT_SIZE      1 // ui size [1 = small; 2 = big]
 #define LETTER_SIZE     1
 #define POINT_WIDTH     2 // point width [2 for smoother bricks]
 #define LETTER_HEIGHT   5

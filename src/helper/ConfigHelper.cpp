@@ -62,7 +62,7 @@ void ConfigHelper::readConfig() {
     }
     input.close();
 
-    auto getItem = [&config](std::string key) -> int {
+    auto getItem = [&config](const std::string& key) -> int {
         try {
             return config.at(key);
         } catch(...) {

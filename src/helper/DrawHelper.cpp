@@ -36,8 +36,8 @@ void DrawHelper::clearTetris(Tetris *tetris) {
 }
 
 void DrawHelper::clearField() {
-    for (int k = 0; k < FIELD_HEIGHT * POINT_SIZE; ++k) {
-        for (int m = 0; m < FIELD_WIDTH * POINT_SIZE * POINT_WIDTH; ++m) {
+    for (int k = 0; k < FIELD_HEIGHT * DrawHelper::getUiSize(); ++k) {
+        for (int m = 0; m < FIELD_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH; ++m) {
             int x = DrawHelper::getPaddingX() + m;
             int y = DrawHelper::getPaddingY() + k;
             DrawHelper::printAt(x, y, EMPTY_SPACE);
@@ -46,11 +46,11 @@ void DrawHelper::clearField() {
 }
 
 void DrawHelper::drawPoint(Point *point, const char *character, int color, bool ignore, bool letter) {
-    int scale = letter ? LETTER_SIZE : POINT_SIZE;
+    int scale = letter ? LETTER_SIZE : DrawHelper::getUiSize();
     if(ignore || TetrisHelper::isPointInScreen(point)) {
         DrawHelper::useColor(color);
         for (int k = 0; k < pow(scale, 2) * POINT_WIDTH; ++k) {
-            int row = k / POINT_WIDTH / POINT_SIZE;
+            int row = k / POINT_WIDTH / DrawHelper::getUiSize();
             int x = POINT_WIDTH * scale * point->getX() + DrawHelper::getPaddingX() + k - row * POINT_WIDTH * scale;
             if(point->getX() > FIELD_WIDTH && point->getX() < FIELD_WIDTH + MENU_WIDTH) x++;
             int y = scale * point->getY() + DrawHelper::getPaddingY() + row;
@@ -65,8 +65,8 @@ void DrawHelper::drawBorder() {
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
     int height = size.ws_row;
     int width = size.ws_col;
-    int totalFieldHeight = FIELD_HEIGHT * POINT_SIZE + 2;
-    int totalFieldWidth = (FIELD_WIDTH + MENU_WIDTH) * POINT_SIZE * POINT_WIDTH + 3;
+    int totalFieldHeight = FIELD_HEIGHT * DrawHelper::getUiSize() + 2;
+    int totalFieldWidth = (FIELD_WIDTH + MENU_WIDTH) * DrawHelper::getUiSize() * POINT_WIDTH + 3;
 
     // calculate field padding on both axes
     if(width > totalFieldWidth) paddingX = (int) (width - totalFieldWidth) / 2;
@@ -90,7 +90,7 @@ void DrawHelper::drawBorder() {
 
     // draw menu separator line
     for (int k = 0; k < totalFieldHeight; ++k) {
-        int x = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH;
+        int x = DrawHelper::getPaddingX() + FIELD_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH;
         int y = DrawHelper::getPaddingY() + k - 1;
         if(k == 0) DrawHelper::printAt(x, y, TOP_CROSSING_BORDER);
         else if(k == totalFieldHeight - 1) DrawHelper::printAt(x, y, BOTTOM_CROSSING_BORDER);
@@ -98,11 +98,11 @@ void DrawHelper::drawBorder() {
     }
 
     // draw upcoming separator line
-    for (int k = 0; k < MENU_WIDTH * POINT_SIZE * POINT_WIDTH + 2; ++k) {
-        int x = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + k;
-        int y = DrawHelper::getPaddingY() + UPCOMING_HEIGHT * POINT_SIZE;
+    for (int k = 0; k < MENU_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH + 2; ++k) {
+        int x = DrawHelper::getPaddingX() + FIELD_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH + k;
+        int y = DrawHelper::getPaddingY() + UPCOMING_HEIGHT * DrawHelper::getUiSize();
         if(k == 0) DrawHelper::printAt(x, y, LEFT_CROSSING_BORDER);
-        else if(k == MENU_WIDTH * POINT_SIZE * POINT_WIDTH + 1) DrawHelper::printAt(x, y, RIGHT_CROSSING_BORDER);
+        else if(k == MENU_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH + 1) DrawHelper::printAt(x, y, RIGHT_CROSSING_BORDER);
         else DrawHelper::printAt(x, y, HORIZONTAL_BORDER);
     }
 }
@@ -130,9 +130,9 @@ void DrawHelper::drawUpcoming(Tetris *tetris) {
 }
 
 void DrawHelper::clearUpcoming() {
-    for (int k = 0; k < UPCOMING_HEIGHT * POINT_SIZE; ++k) {
-        for (int m = 0; m < MENU_WIDTH * POINT_SIZE * POINT_WIDTH; ++m) {
-            int x = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + 1 + m;
+    for (int k = 0; k < UPCOMING_HEIGHT * DrawHelper::getUiSize(); ++k) {
+        for (int m = 0; m < MENU_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH; ++m) {
+            int x = DrawHelper::getPaddingX() + FIELD_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH + 1 + m;
             int y = DrawHelper::getPaddingY() + k;
             DrawHelper::printAt(x, y, EMPTY_SPACE);
         }
@@ -140,8 +140,8 @@ void DrawHelper::clearUpcoming() {
 }
 
 void DrawHelper::drawStatistics(int score, int level, int lines) {
-    auto * point = new Point(DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + 2, DrawHelper::getPaddingY() + UPCOMING_HEIGHT * POINT_SIZE + 1 * POINT_SIZE);
-    auto * scPoint = new Point(DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + 2, DrawHelper::getPaddingY() + FIELD_HEIGHT * POINT_SIZE - 1 * POINT_SIZE);
+    auto * point = new Point(DrawHelper::getPaddingX() + FIELD_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH + 2, DrawHelper::getPaddingY() + UPCOMING_HEIGHT * DrawHelper::getUiSize() + 1 * DrawHelper::getUiSize());
+    auto * scPoint = new Point(DrawHelper::getPaddingX() + FIELD_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH + 2, DrawHelper::getPaddingY() + FIELD_HEIGHT * DrawHelper::getUiSize() - 1 * DrawHelper::getUiSize());
     auto drawStatistic = [&point](const char * name, int value) {
         attron(A_BOLD);
         DrawHelper::printAt(point->getX(), point->getY(), name);
@@ -156,31 +156,17 @@ void DrawHelper::drawStatistics(int score, int level, int lines) {
         point->moveY(2);
     };
 
-    auto drawShortcut = [&scPoint](const std::string& shortcut) {
-        std::string firstLetter = shortcut.substr(0, 1);
-        DrawHelper::printAt(scPoint->getX(), scPoint->getY(), "[");
-        DrawHelper::printAt(scPoint->getX() + 1, scPoint->getY(), shortcut.substr(0, 1).c_str());
-        DrawHelper::printAt(scPoint->getX() + 2, scPoint->getY(), "]");
-        DrawHelper::printAt(scPoint->getX() + 3, scPoint->getY(), std::string(shortcut).substr(1, shortcut.length() - 1).c_str());
-        scPoint->moveY(-2);
-    };
-
     drawStatistic("Score", score);
     drawStatistic("Highscore", ConfigHelper::getHighscore());
     drawStatistic("Level", level);
     drawStatistic("Lines", lines);
-
-    // add shortcut hints
-/*    drawShortcut("Exit");
-    drawShortcut("Reset");
-    drawShortcut("Pause");*/
 }
 
 void DrawHelper::clearStatistics() {
-    for (int k = 0; k < (FIELD_HEIGHT - UPCOMING_HEIGHT) * POINT_SIZE - 1; ++k) {
-        for (int m = 0; m < MENU_WIDTH * POINT_SIZE * POINT_WIDTH; ++m) {
-            int x = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_SIZE * POINT_WIDTH + 1 + m;
-            int y = DrawHelper::getPaddingY() + UPCOMING_HEIGHT * POINT_SIZE + 1 + k;
+    for (int k = 0; k < (FIELD_HEIGHT - UPCOMING_HEIGHT) * DrawHelper::getUiSize() - 1; ++k) {
+        for (int m = 0; m < MENU_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH; ++m) {
+            int x = DrawHelper::getPaddingX() + FIELD_WIDTH * DrawHelper::getUiSize() * POINT_WIDTH + 1 + m;
+            int y = DrawHelper::getPaddingY() + UPCOMING_HEIGHT * DrawHelper::getUiSize() + 1 + k;
             DrawHelper::printAt(x, y, EMPTY_SPACE);
         }
     }
@@ -197,6 +183,7 @@ void DrawHelper::printAt(int x, int y, const char *characters) {
     mvprintw(y, x, "%s", characters);
 }
 
+
 void DrawHelper::initialize() {
     struct winsize size{};
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
@@ -204,7 +191,18 @@ void DrawHelper::initialize() {
     paddingX = 0;
     paddingY = 0;
 
-    setlocale(LC_ALL, "");
+    auto fitsScreen = [&height, &width](int &uiSize) {
+        return height >= FIELD_HEIGHT * uiSize + 2 && width >= (FIELD_WIDTH + MENU_WIDTH) * uiSize * POINT_WIDTH + 3;
+    };
+
+    while(!fitsScreen(uiSize) && uiSize > 0) uiSize--;
+    if(uiSize == 0) {
+        printf("Your terminal doesn't fit the required dimensions! [height: %i -> required: %i; width: %i -> required: %i]\n", height, FIELD_HEIGHT + 2, width, FIELD_WIDTH + MENU_WIDTH + 3);
+        fflush(stdout);
+        exit(0);
+    }
+
+    setlocale(LC_ALL, ""); // enable unicodes
 
     // setup ncurses
     WINDOW *win = newwin(height, width, 0, 0); // create a new ncurses window
@@ -218,20 +216,18 @@ void DrawHelper::initialize() {
     nodelay(win, TRUE); // disable key wait delay
 
     // add color pairs
-    init_color(9, 1000, 533, 0);    // orange color
-    init_color(10, 309, 309, 309);  // light gray color
+    init_color(24, 1000, 533, 0);    // orange color -> used in L-Tetromino
+    init_color(25, 309, 309, 309);   // light gray color -> used in preview dot
 
     init_pair(1, -1, COLOR_CYAN);     // I-Tetromino
     init_pair(2, -1, COLOR_BLUE);     // J-Tetromino
-    init_pair(3, -1, 9);              // L-Tetromino
+    init_pair(3, -1, 24);             // L-Tetromino
     init_pair(4, -1, COLOR_YELLOW);   // O-Tetromino
     init_pair(5, -1, COLOR_GREEN);    // S-Tetromino
     init_pair(6, -1, COLOR_MAGENTA);  // T-Tetromino
     init_pair(7, -1, COLOR_RED);      // Z-Tetromino
-    init_pair(8, 10, -1);             // preview dot
+    init_pair(8, 25, -1);             // preview dot
     init_pair(9, -1, COLOR_WHITE);    // menu stuff
-
-
 }
 
 int DrawHelper::getPaddingX() {
@@ -240,6 +236,10 @@ int DrawHelper::getPaddingX() {
 
 int DrawHelper::getPaddingY() {
     return paddingY;
+}
+
+int DrawHelper::getUiSize() {
+    return uiSize;
 }
 
 

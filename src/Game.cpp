@@ -32,22 +32,20 @@ Game::Game() {
 }
 
 void Game::draw() {
-    // get current key
     timeout(0);  // don't wait for user input
-    int key = getch();
+    int key = getch(); // get current key
     flushinp();  // clear input buffer
 
     if (key == 'p' && !paused && !gameover) {
         paused = true;
         key = -1;  // make sure the key information isn't used twice
-    } else if(key == 'r') return reset(); // reset the game
-
-    // TODO -> "Custom" font adjustable to the point size
-    // TODO -> Auto adjust to screen size -> Error when terminal is too small
-
+    } else if(key == 'r') return reset();
+    else if(key == 'e') {
+        stop();
+        exit(0);
+    }
 
     if (!gameover && !paused) {
-        // draw active object
         if (step >= getDroppingFrames()) {
             if (TetrisHelper::canTetrisMove(active, Direction::vertical, 1)) {
                 DrawHelper::clearTetris(active);
@@ -105,19 +103,17 @@ void Game::draw() {
                     DrawHelper::drawTetris(active);
                 }
                 break;
-        };
+        }
 
         if (key == KEY_UP || key == KEY_DOWN || key == KEY_RIGHT || key == KEY_LEFT || step >= getDroppingFrames()) {
             if (!TetrisHelper::canTetrisMove(active, Direction::vertical, 1)) fixActive();
         }
     } else if (paused) {
         if (key == 'p') {
-            // restore game progress
             DrawHelper::clearUpcoming();
             DrawHelper::drawUpcoming(upcoming);
-            // drawPaused(true);
-            paused = false;  // unpause game
-        } else /*drawPaused();*/ DrawHelper::drawPaused();
+            paused = false;
+        } else DrawHelper::drawPaused();
     }
 
     DrawHelper::drawStatistics(score, level, cleared);
@@ -140,39 +136,8 @@ void Game::start() {
 }
 
 void Game::stop() {
-    running = false;  // stop the game cycle
-    endwin();         // stop the ncurses mode and reenter the default terminal
-}
-
-void Game::drawPaused(bool clear) {
-    const int pausedWidth = 3;
-    const int pausedHeight = 3;
-
-    // calculate the padding of the paused icon
-    int _paddingX = (FIELD_WIDTH - 3) / 2 + 1;
-    int _paddingY = (FIELD_HEIGHT - 3) / 2;
-
-    for (int i = 0; i < FIELD_HEIGHT; i++) {
-        array<short, FIELD_WIDTH> row = TetrisHelper::getFixedLine(i);
-        for (int j = 0; j < row.size(); j++) {
-            if (row[j]) {
-                Point point = Point(j, i);
-                DrawHelper::drawPoint(&point, clear ? OCCUPIED_SPACE : EMPTY_SPACE, clear ? row[j] : -1);
-            }
-        }
-    }
-    DrawHelper::drawTetris(active, clear ? OCCUPIED_SPACE : EMPTY_SPACE, clear ? active->getType() + 1 : -1);
-    if (!clear) DrawHelper::drawPreviewLine(active, EMPTY_SPACE);
-
-    for (int i = 0; i < pausedWidth * pausedHeight; i++) {
-        int row = i / pausedWidth;
-        int rest = i % pausedWidth;
-        Point point = Point(_paddingX + rest, _paddingY + row);
-        if (rest == 0 || rest == pausedWidth - 1)
-            DrawHelper::drawPoint(&point, clear ? EMPTY_SPACE : OCCUPIED_SPACE, clear ? -1 : 9);
-    }
-
-    if (clear) DrawHelper::drawPreviewLine(active);
+    running = false; // stop the game cycle
+    endwin(); // stop the ncurses mode and reenter the default terminal
 }
 
 
@@ -183,7 +148,7 @@ void Game::fixActive() {
     vector<int> modifiedRows = vector<int>();
     for (Point point: active->getPoints()) { // update fixed points in the array
         if (point.getY() >= 0)
-            TetrisHelper::setFixedPoint(point.getX(), point.getY(), active->getType() + 1); // store color for the point
+            TetrisHelper::setFixedPoint(point.getX(), point.getY(), static_cast<short>(active->getType() + 1)); // store color for the point
         else outOfScreen = true;
 
         bool existing = false;
@@ -223,8 +188,7 @@ void Game::fixActive() {
         }
     }
 
-    // sort full rows in ascending order
-    sort(fullRows.begin(), fullRows.end());
+    sort(fullRows.begin(), fullRows.end()); // sort full rows in ascending order
 
     for (int row: fullRows) {
         int highestY = FIELD_HEIGHT;
@@ -258,7 +222,7 @@ void Game::fixActive() {
 
     // update level and score
 
-    cleared += fullRows.size();
+    cleared += static_cast<int>(fullRows.size());
     if (level == 0 ? cleared >= 10 : cleared >= level * 30) level++;
 
     switch (fullRows.size()) {
@@ -328,8 +292,8 @@ int Game::getDroppingFrames() const {
 void Game::gameOver() {
     ConfigHelper::addRound();
     DrawHelper::clearUpcoming();
-    int paddingX = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_WIDTH * POINT_SIZE + POINT_WIDTH;
-    int paddingY = DrawHelper::getPaddingY() + (UPCOMING_HEIGHT * POINT_SIZE) / 2;
+    int paddingX = DrawHelper::getPaddingX() + FIELD_WIDTH * POINT_WIDTH * DrawHelper::getUiSize() + POINT_WIDTH;
+    int paddingY = DrawHelper::getPaddingY() + (UPCOMING_HEIGHT * DrawHelper::getUiSize()) / 2;
     DrawHelper::printAt(paddingX, paddingY - 2, "Gameover!");
     DrawHelper::printAt(paddingX, paddingY, "Press 'r' to");
     DrawHelper::printAt(paddingX, paddingY + 1, "replay!");
