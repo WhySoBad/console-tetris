@@ -94,6 +94,14 @@ cmake-build-*/
 # IntelliJ
 out/
 
+.cmake
+.ninja_deps
+.ninja_log
+build.ninja
+CMakeCache.txt
+cmake_install.cmake
+CMakeFiles
+
 # mpeltonen/sbt-idea plugin
 .idea_modules/
 

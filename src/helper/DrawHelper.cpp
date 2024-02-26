@@ -7,6 +7,7 @@
 #include "sys/ioctl.h"
 #include "ncurses.h"
 #include "ConfigHelper.h"
+#include "unistd.h"
 
 void DrawHelper::drawTetris(Tetris *tetris, const char *character, int color) {
     for (Point point : tetris->getPoints()) drawPoint(&point, character, color);

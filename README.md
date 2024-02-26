@@ -18,6 +18,15 @@
 * <kbd>P</kbd>ause the game 
 * <kbd>R</kbd>eset the game
 
-## Usage
+## Build & Usage
 
-This program has a single dependency to [ncurses](https://archlinux.org/packages/core/x86_64/ncurses/) and was coded and tested on Arch
+This program has a single dependency to [ncurses](https://archlinux.org/packages/core/x86_64/ncurses/) and was tested on Arch
+
+For building you need to have `cmake` installed:
+```bash
+# Setup cmake
+cmake .
+# Build the project
+cmake --build .
+```
+After this, you'll find the `console-tetris` binary in the `./bin` directory
